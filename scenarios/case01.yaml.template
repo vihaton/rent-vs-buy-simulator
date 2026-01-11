@@ -1,0 +1,32 @@
+# scenarios/case01.yaml
+scenario_name: "Renting vs Bying"
+renting:
+  rent_monthly: 1234
+  utilities_monthly: 123
+  living_months: 60
+
+tax:
+  woz_value: 200000
+  marginal_tax_rate: 0.3756
+  deduction_cap_rate: 0.3756
+  apply_wet_hillen: true
+  rental_income_tax_rate: 0.0
+
+buying:
+  purchase_price: 200000
+  mortgage_principal: 180000
+  mortgage_annual_rate: 0.04
+  mortgage_term_years: 20
+
+  living_months: 60
+
+  one_off_costs: 12000
+  monthly_vve: 200
+  monthly_utilities: 200
+
+  monthly_rent_income: 0
+  months_rented: 0
+
+  annual_value_growth: 0.02
+  sold_at_end: true
+  selling_cost_rate: 0.03
