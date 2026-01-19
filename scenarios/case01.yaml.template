@@ -1,9 +1,11 @@
-# scenarios/case01.yaml
-scenario_name: "Renting vs Bying"
+name: "Renting vs Bying"
 renting:
   rent_monthly: 1234
   utilities_monthly: 123
   living_months: 60
+
+  description: "a flat"
+  link: "www.example.com/flat1"
 
 tax:
   woz_value: 200000
@@ -21,6 +23,7 @@ buying:
   living_months: 60
 
   one_off_costs: 12000
+  renovation_costs_once: 0
   monthly_vve: 200
   monthly_utilities: 200
 
@@ -30,3 +33,6 @@ buying:
   annual_value_growth: 0.02
   sold_at_end: true
   selling_cost_rate: 0.03
+
+  description: "another flat"
+  link: "www.example.com/flat2"

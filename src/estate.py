@@ -16,6 +16,8 @@ class RentingScenario:
     rent_monthly: float
     utilities_monthly: float
     living_months: int
+    description: Optional[str] = None
+    link: Optional[str] = None
 
 def evaluate_renting(s: RentingScenario) -> Dict[str, float]:
     x = s.living_months
@@ -24,7 +26,7 @@ def evaluate_renting(s: RentingScenario) -> Dict[str, float]:
     spent = x * monthly_cost
     income = 0.0
 
-    return {
+    result = {
         "total_spent": spent,
         "total_income": income,
         "net_cashflow": income - spent,
@@ -33,6 +35,14 @@ def evaluate_renting(s: RentingScenario) -> Dict[str, float]:
         "monthly_net_cost": [monthly_cost] * x,
         "months": x,
     }
+    
+    # Add metadata if available
+    if s.description is not None:
+        result["description"] = s.description
+    if s.link is not None:
+        result["link"] = s.link
+    
+    return result
 
 # ----------------------------
 # Scenario B: Buying (with tax)
@@ -50,6 +60,7 @@ class BuyingScenario:
 
     # Costs
     one_off_costs: float
+    renovation_costs_once: float
     monthly_vve: float
     monthly_utilities: float
 
@@ -67,6 +78,10 @@ class BuyingScenario:
 
     # Taxes
     tax: Optional[NLHomeTax2026] = None
+    
+    # Metadata
+    description: Optional[str] = None
+    link: Optional[str] = None
 
 def evaluate_buying(s: BuyingScenario) -> Dict[str, float]:
     x = s.living_months
@@ -80,13 +95,20 @@ def evaluate_buying(s: BuyingScenario) -> Dict[str, float]:
         horizon_months=x,
     )
 
+    # Calculate upfront cash requirement
+    down_payment = s.purchase_price - s.mortgage_principal
+    cash_required_upfront = down_payment + s.one_off_costs + s.renovation_costs_once
+
     # Cash outflows
-    spent_one_off = s.one_off_costs
+    spent_one_off = s.one_off_costs + s.renovation_costs_once
     spent_monthly_non_mortgage = x * (s.monthly_vve + s.monthly_utilities)
     spent_mortgage_interest = sched["total_interest"]
     spent_mortgage_principal = sched["total_principal"]
 
     total_spent = spent_one_off + spent_monthly_non_mortgage + spent_mortgage_interest + spent_mortgage_principal
+    
+    # Calculate usual monthly cost (excluding one-off payments)
+    spent_monthly_recurring = spent_monthly_non_mortgage + spent_mortgage_interest + spent_mortgage_principal
 
     # Cash inflows
     total_income = months_rented * s.monthly_rent_income
@@ -137,13 +159,20 @@ def evaluate_buying(s: BuyingScenario) -> Dict[str, float]:
         monthly_net_cost.append(monthly_cost)
 
 # return dict
-    return {
+    result = {
         "total_spent": total_spent,
         "total_income": total_income,
         "net_cashflow": net_cashflow,
         "wealth_end": wealth_end,
         "avg_net_cost_per_month": (total_spent - total_income) / x if x > 0 else 0.0,
+        "usual_net_cost_per_month": (spent_monthly_recurring - total_income) / x if x > 0 else 0.0,
         "months": x,
+
+        # Cash requirement breakdown
+        "cash_required_upfront": cash_required_upfront,
+        "down_payment": down_payment,
+        "one_off_costs": s.one_off_costs,
+        "renovation_costs_once": s.renovation_costs_once,
 
         # breakdown
         "mortgage_monthly_payment": sched["monthly_payment"],
@@ -157,6 +186,14 @@ def evaluate_buying(s: BuyingScenario) -> Dict[str, float]:
         "net_sale_proceeds_if_sold": sale_proceeds_net,
         "tax_effect_total_over_horizon": tax_effect,
     }
+    
+    # Add metadata if available
+    if s.description is not None:
+        result["description"] = s.description
+    if s.link is not None:
+        result["link"] = s.link
+    
+    return result
 
 def invest_difference(
     rent_result,
