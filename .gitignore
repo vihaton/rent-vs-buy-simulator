@@ -217,3 +217,7 @@ __marimo__/
 
 scenarios/*.yaml
 data/**/*.csv
+data/**/*.html
+
+outputs/
+.DS_Store
