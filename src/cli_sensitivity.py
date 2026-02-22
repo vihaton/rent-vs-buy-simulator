@@ -15,7 +15,8 @@ from src.sensitivity import (
     generate_parameter_space,
     run_sensitivity_analysis,
     apply_constraints,
-    export_results
+    export_results,
+    print_constraint_fields
 )
 from src.estate import BuyingScenario
 from src.tax import NLHomeTax2026
@@ -45,8 +46,14 @@ Examples:
     parser.add_argument(
         '--config',
         type=str,
-        required=True,
+        required=False,
         help='Path to sensitivity analysis configuration YAML file'
+    )
+    
+    parser.add_argument(
+        '--list-constraints',
+        action='store_true',
+        help='List all available constraint fields and exit'
     )
     
     parser.add_argument(
@@ -117,6 +124,17 @@ def main():
     try:
         # Parse arguments
         args = parse_args()
+        
+        # Handle --list-constraints flag
+        if args.list_constraints:
+            print_constraint_fields(verbose=args.verbose)
+            return 0
+        
+        # Validate that config is provided for normal operation
+        if not args.config:
+            print("ERROR: --config is required (or use --list-constraints to see available fields)",
+                  file=sys.stderr)
+            return 1
         
         if args.verbose:
             print(f"Loading configuration from: {args.config}")

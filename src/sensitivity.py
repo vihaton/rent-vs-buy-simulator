@@ -226,6 +226,121 @@ def apply_constraints(
     return filtered_df
 
 
+def list_available_constraint_fields() -> Dict[str, str]:
+    """
+    Return a dictionary of all fields available for constraints.
+    
+    Returns:
+        Dictionary mapping field names to their descriptions
+    """
+    return {
+        # Financial Summary
+        "total_spent": "Total cash spent over the period",
+        "total_income": "Total income received (rent + tax benefits)",
+        "net_cashflow": "Net cash flow (income - spent)",
+        "wealth_end": "Final wealth position",
+        "avg_net_cost_per_month": "Average net cost per month",
+        "usual_net_cost_per_month": "Usual monthly cost (excluding one-off costs)",
+        "months": "Number of months in the scenario",
+        
+        # Upfront Costs
+        "cash_required_upfront": "Total upfront cash needed",
+        "down_payment": "Down payment amount",
+        "one_off_costs": "One-time costs",
+        "renovation_costs_once": "Renovation costs",
+        
+        # Mortgage Details
+        "mortgage_monthly_payment": "Monthly mortgage payment",
+        "mortgage_interest_paid": "Total interest paid",
+        "mortgage_principal_paid": "Total principal paid",
+        "mortgage_remaining_balance": "Remaining debt at end",
+        
+        # Property Value
+        "home_value_end": "Home value at end of period",
+        "equity_end_if_not_sold": "Equity if not sold",
+        "selling_costs_if_sold": "Selling costs if sold",
+        "net_sale_proceeds_if_sold": "Net proceeds from sale",
+        
+        # Tax Effects
+        "tax_effect_total_over_horizon": "Total tax benefit/cost over period",
+    }
+
+
+def print_constraint_fields(verbose: bool = False):
+    """
+    Print all available constraint fields in a formatted way.
+    
+    Args:
+        verbose: If True, include example constraints
+    """
+    fields = list_available_constraint_fields()
+    
+    print("=" * 80)
+    print("AVAILABLE CONSTRAINT FIELDS")
+    print("=" * 80)
+    print("\nThese fields can be used in constraint expressions with pandas query syntax.")
+    print("Operators: <, <=, >, >=, ==, !=, and, or, not\n")
+    
+    # Group by category
+    categories = {
+        "Financial Summary": [
+            "total_spent", "total_income", "net_cashflow", "wealth_end",
+            "avg_net_cost_per_month", "usual_net_cost_per_month", "months"
+        ],
+        "Upfront Costs": [
+            "cash_required_upfront", "down_payment", "one_off_costs", "renovation_costs_once"
+        ],
+        "Mortgage Details": [
+            "mortgage_monthly_payment", "mortgage_interest_paid",
+            "mortgage_principal_paid", "mortgage_remaining_balance"
+        ],
+        "Property Value": [
+            "home_value_end", "equity_end_if_not_sold",
+            "selling_costs_if_sold", "net_sale_proceeds_if_sold"
+        ],
+        "Tax Effects": [
+            "tax_effect_total_over_horizon"
+        ]
+    }
+    
+    for category, field_names in categories.items():
+        print(f"\n{category}:")
+        print("-" * 80)
+        for field_name in field_names:
+            if field_name in fields:
+                print(f"  • {field_name:35s} - {fields[field_name]}")
+    
+    if verbose:
+        print("\n" + "=" * 80)
+        print("EXAMPLE CONSTRAINTS")
+        print("=" * 80)
+        examples = [
+            ('Limit upfront cash', '"cash_required_upfront <= 30000"'),
+            ('Limit monthly costs', '"avg_net_cost_per_month <= 2500"'),
+            ('Ensure positive wealth', '"wealth_end >= 0"'),
+            ('Limit mortgage payment', '"mortgage_monthly_payment <= 2000"'),
+            ('Require minimum equity', '"equity_end_if_not_sold >= 50000"'),
+            ('Multiple conditions', '"cash_required_upfront <= 40000 and avg_net_cost_per_month <= 2200"'),
+            ('Range constraint', '"wealth_end >= -10000 and wealth_end <= 100000"'),
+            ('Positive sale proceeds', '"net_sale_proceeds_if_sold > 0"'),
+        ]
+        
+        for description, constraint in examples:
+            print(f"\n  {description}:")
+            print(f"    {constraint}")
+        
+        print("\n" + "=" * 80)
+        print("USAGE IN CONFIG FILE")
+        print("=" * 80)
+        print("""
+sensitivity:
+  constraints:
+    - "cash_required_upfront <= 30000"
+    - "avg_net_cost_per_month <= 2500"
+    - "wealth_end >= 0"
+""")
+
+
 def export_results(
     df: pd.DataFrame,
     output_config: Dict[str, Any],
