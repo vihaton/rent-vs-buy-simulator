@@ -350,6 +350,77 @@ class TestBuyingScenario(unittest.TestCase):
         self.assertEqual(result["one_off_costs"], 18000.0)
         self.assertEqual(result["renovation_costs_once"], 5000.0)
 
+    def test_evaluate_buying_cash_required_correct_order(self):
+        """Test cash requirement with correct purchase_price > mortgage_principal.
+        
+        This test verifies the correct calculation when values are in the right order.
+        User's scenario should be:
+        - Purchase price: 365k (what the flat costs)
+        - Mortgage: 360k (what bank lends)
+        - Down payment: 5k
+        - One-off costs: 10k
+        - Renovation: 5k
+        - Total: 20k
+        """
+        scenario = BuyingScenario(
+            purchase_price=365000.0,  # Correct: purchase price
+            mortgage_principal=360000.0,  # Correct: mortgage amount
+            mortgage_annual_rate=0.04,
+            mortgage_term_years=30,
+            living_months=36,
+            one_off_costs=10000.0,
+            renovation_costs_once=5000.0,
+            monthly_vve=385.0,
+            monthly_utilities=300.0,
+            monthly_rent_income=0.0,
+            months_rented=0,
+            annual_value_growth=0.02,
+            sold_at_end=True,
+            selling_cost_rate=0.03,
+        )
+        result = evaluate_buying(scenario)
+        
+        # Down payment: 365000 - 360000 = 5000
+        self.assertEqual(result["down_payment"], 5000.0)
+        
+        # Cash required: 5000 + 10000 + 5000 = 20000
+        self.assertEqual(result["cash_required_upfront"], 20000.0)
+        self.assertEqual(result["one_off_costs"], 10000.0)
+        self.assertEqual(result["renovation_costs_once"], 5000.0)
+
+    def test_evaluate_buying_cash_required_swapped_values(self):
+        """Test cash requirement when purchase_price and mortgage_principal are swapped.
+        
+        This documents what happens when the YAML configuration has the values backwards
+        (which is the bug in the user's scenario file).
+        """
+        scenario = BuyingScenario(
+            purchase_price=360000.0,  # WRONG: Should be 365000
+            mortgage_principal=365000.0,  # WRONG: Should be 360000
+            mortgage_annual_rate=0.04,
+            mortgage_term_years=30,
+            living_months=36,
+            one_off_costs=10000.0,
+            renovation_costs_once=5000.0,
+            monthly_vve=385.0,
+            monthly_utilities=300.0,
+            monthly_rent_income=0.0,
+            months_rented=0,
+            annual_value_growth=0.02,
+            sold_at_end=True,
+            selling_cost_rate=0.03,
+        )
+        result = evaluate_buying(scenario)
+        
+        # When values are swapped: down_payment = 360000 - 365000 = -5000
+        self.assertEqual(result["down_payment"], -5000.0)
+        
+        # Cash required becomes: -5000 + 10000 + 5000 = 10000 (WRONG!)
+        # This is the bug the user is seeing
+        self.assertEqual(result["cash_required_upfront"], 10000.0)
+        
+        # The correct value should be 20000 (with proper purchase/mortgage values)
+
     def test_evaluate_buying_usual_monthly_cost(self):
         """Test usual monthly cost calculation (excluding one-off costs)"""
         scenario = BuyingScenario(

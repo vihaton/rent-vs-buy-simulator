@@ -1,0 +1,69 @@
+name: "Sensitivity Analysis - Example"
+
+# Tax configuration (required for buying scenarios)
+tax:
+  woz_value: 321000
+  marginal_tax_rate: 0.3756
+  deduction_cap_rate: 0.3756
+  apply_wet_hillen: true
+  rental_income_tax_rate: 0.0
+
+# Base buying scenario with default values
+# These values will be used unless overridden by sensitivity variables
+buying:
+  purchase_price: 333000
+  mortgage_principal: 330000
+  mortgage_annual_rate: 0.04
+  mortgage_term_years: 30
+
+  living_months: 36
+
+  one_off_costs: 10000
+  renovation_costs_once: 5000
+  monthly_vve: 200
+  monthly_utilities: 123
+
+  monthly_rent_income: 0
+  months_rented: 0
+
+  annual_value_growth: 0.02
+  sold_at_end: true
+  selling_cost_rate: 0.03
+
+# Sensitivity analysis configuration
+sensitivity:
+  # Define which parameters to vary
+  variables:
+    # Vary purchase price to find affordable range
+    purchase_price:
+      strategy: "linspace"
+      min: 280000
+      max: 400000
+      steps: 25
+    
+    # Vary VVE costs to understand impact
+    monthly_vve:
+      strategy: "linspace"
+      min: 200
+      max: 500
+      steps: 10
+    
+    # Consider different mortgage rates
+    mortgage_annual_rate:
+      strategy: "linspace"
+      min: 0.03
+      max: 0.05
+      steps: 5
+  
+  # Optional: constraints to filter results
+  # Only keep scenarios that meet these criteria
+  constraints:
+    - "cash_required_upfront <= 50000"
+    - "avg_net_cost_per_month <= 2500"
+  
+  # Output configuration
+  output:
+    format: "csv"  # or "parquet", "json"
+    directory: "outputs/sensitivity"
+    filename_prefix: "sensitivity_analysis"
+    include_timestamp: true
