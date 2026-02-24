@@ -330,7 +330,7 @@ def main():
     )
     parser.add_argument(
         'subfolder',
-        help='Subfolder name in data/funda/ to process (e.g., "nellestein")'
+        help='Subfolder name in data/funda/ to process (e.g., "my neighbourhood")'
     )
     parser.add_argument(
         '--output-format',
