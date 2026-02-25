@@ -105,7 +105,7 @@ def evaluate_buying(s: BuyingScenario) -> Dict[str, float]:
     spent_mortgage_interest = sched["total_interest"]
     spent_mortgage_principal = sched["total_principal"]
 
-    total_spent = spent_one_off + spent_monthly_non_mortgage + spent_mortgage_interest + spent_mortgage_principal
+    total_spent = down_payment + spent_one_off + spent_monthly_non_mortgage + spent_mortgage_interest + spent_mortgage_principal
     
     # Calculate usual monthly cost (excluding one-off payments)
     spent_monthly_recurring = spent_monthly_non_mortgage + spent_mortgage_interest + spent_mortgage_principal

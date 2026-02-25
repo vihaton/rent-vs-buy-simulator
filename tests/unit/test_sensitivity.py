@@ -295,6 +295,113 @@ class TestRunSensitivityAnalysis:
         
         # Verify cash_required changes appropriately
         assert results_df['cash_required_upfront'].nunique() == 2  # Two unique values: 35k and 25k
+    
+    def test_total_spent_includes_down_payment(self, base_scenario):
+        """Test that total_spent varies when purchase_price changes in sensitivity analysis.
+        
+        This test validates that total_spent includes the down payment, which should
+        vary when purchase_price changes. This is a regression test for a bug where
+        total_spent remained constant despite changes in purchase_price.
+        
+        Expected behavior:
+        - total_spent should include: down_payment + one_off_costs + monthly_costs + mortgage_payments
+        - When purchase_price increases (with constant mortgage_principal), down_payment increases
+        - Therefore, total_spent should also increase
+        """
+        # Test with different purchase prices but same mortgage principal
+        # This creates different down payments
+        param_space = [
+            {'purchase_price': 330000, 'mortgage_principal': 320000},  # 10k down
+            {'purchase_price': 340000, 'mortgage_principal': 320000},  # 20k down
+            {'purchase_price': 350000, 'mortgage_principal': 320000},  # 30k down
+        ]
+        
+        results_df = run_sensitivity_analysis(base_scenario, param_space)
+        
+        assert len(results_df) == 3
+        
+        # Verify down payments are different
+        assert results_df.iloc[0]['down_payment'] == 10000.0
+        assert results_df.iloc[1]['down_payment'] == 20000.0
+        assert results_df.iloc[2]['down_payment'] == 30000.0
+        
+        # CRITICAL: total_spent should vary with down_payment
+        # This is the bug - currently total_spent stays the same
+        total_spent_values = results_df['total_spent'].values
+        
+        # All three should be different
+        assert len(set(total_spent_values)) == 3, \
+            f"total_spent should vary with purchase_price, but got: {total_spent_values}"
+        
+        # Verify the relationship: higher down payment = higher total_spent
+        assert total_spent_values[0] < total_spent_values[1] < total_spent_values[2], \
+            f"total_spent should increase with down_payment: {total_spent_values}"
+        
+        # Verify the differences match the down payment differences
+        diff_1_to_2 = total_spent_values[1] - total_spent_values[0]
+        diff_2_to_3 = total_spent_values[2] - total_spent_values[1]
+        
+        assert abs(diff_1_to_2 - 10000.0) < 0.01, \
+            f"Difference in total_spent should equal difference in down_payment (10k), got {diff_1_to_2}"
+        assert abs(diff_2_to_3 - 10000.0) < 0.01, \
+            f"Difference in total_spent should equal difference in down_payment (10k), got {diff_2_to_3}"
+    
+    def test_higher_down_payment_yields_higher_wealth(self, base_scenario):
+        """Test that for the same purchase price, higher down payment leads to higher wealth.
+        
+        Economic principle: Paying more upfront (higher down payment) means borrowing less,
+        which means paying less interest over time. This results in better wealth outcomes.
+        
+        The wealth calculation is complex because:
+        - Higher down payment = more cash spent upfront
+        - But also = less interest paid over time
+        - And also = less principal to pay back (but principal isn't a "cost", it's equity)
+        
+        The key insight: When you pay more down payment, you're essentially pre-paying
+        part of the principal, which saves you from paying interest on that amount.
+        
+        Expected behavior:
+        - Same purchase_price, different mortgage_principal values
+        - Higher down payment = lower mortgage = less interest paid = higher wealth_end
+        """
+        purchase_price = 350000
+        
+        # Test with different down payment amounts (same purchase price)
+        param_space = [
+            {'purchase_price': purchase_price, 'mortgage_principal': 340000},  # 10k down, 340k mortgage
+            {'purchase_price': purchase_price, 'mortgage_principal': 330000},  # 20k down, 330k mortgage
+            {'purchase_price': purchase_price, 'mortgage_principal': 320000},  # 30k down, 320k mortgage
+        ]
+        
+        results_df = run_sensitivity_analysis(base_scenario, param_space)
+        
+        assert len(results_df) == 3
+        
+        # Verify down payments increase
+        assert results_df.iloc[0]['down_payment'] == 10000.0
+        assert results_df.iloc[1]['down_payment'] == 20000.0
+        assert results_df.iloc[2]['down_payment'] == 30000.0
+        
+        # Verify mortgage interest paid decreases with higher down payment
+        interest_paid = results_df['mortgage_interest_paid'].values
+        assert interest_paid[0] > interest_paid[1] > interest_paid[2], \
+            f"Interest paid should decrease with higher down payment: {interest_paid}"
+        
+        # CRITICAL: Higher down payment should lead to higher wealth_end
+        # This is the key economic relationship we're testing
+        wealth_values = results_df['wealth_end'].values
+        
+        assert wealth_values[0] < wealth_values[1] < wealth_values[2], \
+            f"wealth_end should increase with higher down payment: {wealth_values}"
+        
+        # Verify the wealth improvement is positive and meaningful
+        wealth_improvement_1_to_2 = wealth_values[1] - wealth_values[0]
+        wealth_improvement_2_to_3 = wealth_values[2] - wealth_values[1]
+        
+        assert wealth_improvement_1_to_2 > 0, \
+            f"Wealth should improve with higher down payment, got {wealth_improvement_1_to_2:.2f}"
+        assert wealth_improvement_2_to_3 > 0, \
+            f"Wealth should improve with higher down payment, got {wealth_improvement_2_to_3:.2f}"
 
 
 class TestApplyConstraints:

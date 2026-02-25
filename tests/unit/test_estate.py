@@ -441,24 +441,26 @@ class TestBuyingScenario(unittest.TestCase):
         )
         result = evaluate_buying(scenario)
         
-        # Usual monthly cost should NOT include one-off or renovation costs
+        # Usual monthly cost should NOT include one-off, renovation, or down payment costs
         # It should only include: mortgage payment + VVE + utilities
-        # avg_net_cost_per_month INCLUDES one-off costs amortized
-        # usual_net_cost_per_month EXCLUDES one-off costs
+        # avg_net_cost_per_month INCLUDES down payment + one-off costs amortized
+        # usual_net_cost_per_month EXCLUDES down payment + one-off costs
         
         self.assertIn("usual_net_cost_per_month", result)
         self.assertIn("avg_net_cost_per_month", result)
         
         # usual_net_cost_per_month should be less than avg_net_cost_per_month
-        # because it excludes the 20,000 in one-off costs
+        # because it excludes upfront costs
         self.assertLess(
             result["usual_net_cost_per_month"],
             result["avg_net_cost_per_month"]
         )
         
-        # The difference should be approximately (one_off + renovation) / months
-        # = (12000 + 8000) / 24 = 833.33
-        expected_difference = (12000.0 + 8000.0) / 24
+        # The difference should be approximately (down_payment + one_off + renovation) / months
+        # Down payment = 200000 - 180000 = 20000
+        # = (20000 + 12000 + 8000) / 24 = 1666.67
+        down_payment = 200000.0 - 180000.0
+        expected_difference = (down_payment + 12000.0 + 8000.0) / 24
         actual_difference = result["avg_net_cost_per_month"] - result["usual_net_cost_per_month"]
         self.assertAlmostEqual(actual_difference, expected_difference, places=0)
 
@@ -486,8 +488,11 @@ class TestBuyingScenario(unittest.TestCase):
         # Both metrics should account for rental income
         self.assertIn("usual_net_cost_per_month", result)
         
-        # The difference between avg and usual should still be the one-off costs
-        expected_difference = (10000.0 + 5000.0) / 12
+        # The difference between avg and usual should include down payment + one-off costs
+        # Down payment = 200000 - 180000 = 20000
+        # = (20000 + 10000 + 5000) / 12 = 2916.67
+        down_payment = 200000.0 - 180000.0
+        expected_difference = (down_payment + 10000.0 + 5000.0) / 12
         actual_difference = result["avg_net_cost_per_month"] - result["usual_net_cost_per_month"]
         self.assertAlmostEqual(actual_difference, expected_difference, places=0)
 
