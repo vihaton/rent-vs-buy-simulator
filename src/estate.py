@@ -1,11 +1,12 @@
 import math
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import numpy as np
 
 from src.tax import NLHomeTax2026, compute_tax_cashflow_monthly
 from src.utils import amortize_schedule, future_value_monthly_growth, invest_monthly
+from src.mortgage import MortgageLoan, AmortizationType, amortize_multi_loan, resolve_loan_percentages
 
 # ----------------------------
 # Scenario A: Renting
@@ -52,28 +53,33 @@ def evaluate_renting(s: RentingScenario) -> Dict[str, float]:
 class BuyingScenario:
     # Home + financing
     purchase_price: float
-    mortgage_principal: float
-    mortgage_annual_rate: float
-    mortgage_term_years: int
+    
+    # LEGACY FIELDS (kept for backward compatibility)
+    mortgage_principal: Optional[float] = None
+    mortgage_annual_rate: Optional[float] = None
+    mortgage_term_years: Optional[int] = None
+    
+    # NEW FIELD (optional, takes precedence if provided)
+    mortgage_loans: Optional[List[MortgageLoan]] = None
 
-    living_months: int
+    living_months: int = 36
 
     # Costs
-    one_off_costs: float
-    renovation_costs_once: float
-    monthly_vve: float
-    monthly_utilities: float
+    one_off_costs: float = 0.0
+    renovation_costs_once: float = 0.0
+    monthly_vve: float = 0.0
+    monthly_utilities: float = 0.0
 
     # Renting out
-    monthly_rent_income: float
-    months_rented: int
+    monthly_rent_income: float = 0.0
+    months_rented: int = 0
 
     # Value change
-    annual_value_growth: float
+    annual_value_growth: float = 0.0
 
     # Exit
-    sold_at_end: bool
-    selling_cost_rate: float
+    sold_at_end: bool = False
+    selling_cost_rate: float = 0.0
     selling_cost_fixed: float = 0.0
 
     # Taxes
@@ -83,20 +89,61 @@ class BuyingScenario:
     description: Optional[str] = None
     link: Optional[str] = None
 
+def _get_mortgage_config(scenario: BuyingScenario) -> List[MortgageLoan]:
+    """
+    Convert scenario to list of loans, handling legacy format.
+    Also resolves percentage-based loan specifications.
+    """
+    if scenario.mortgage_loans is not None:
+        loans = scenario.mortgage_loans
+        
+        # Calculate total mortgage principal
+        total_mortgage = scenario.mortgage_principal
+        if total_mortgage is None:
+            # Calculate from absolute principals or estimate from purchase price
+            absolute_loans = [loan for loan in loans if loan.principal is not None]
+            if absolute_loans:
+                total_mortgage = sum(loan.principal for loan in absolute_loans)
+            else:
+                # Estimate as 90% of purchase price if all percentage-based
+                total_mortgage = scenario.purchase_price * 0.9
+        
+        # Resolve percentage-based loans
+        loans = resolve_loan_percentages(loans, total_mortgage)
+        return loans
+    
+    # Legacy: create single annuity loan
+    if scenario.mortgage_principal is None:
+        raise ValueError("Either mortgage_loans or mortgage_principal must be specified")
+    
+    return [MortgageLoan(
+        principal=scenario.mortgage_principal,
+        annual_rate=scenario.mortgage_annual_rate,
+        term_years=scenario.mortgage_term_years,
+        amortization_type=AmortizationType.ANNUITY,
+        fixed_period_years=None,
+        rate_resets=None,
+        label="Legacy Loan"
+    )]
+
+
 def evaluate_buying(s: BuyingScenario) -> Dict[str, float]:
     x = s.living_months
-    term_months = s.mortgage_term_years * 12
     months_rented = max(0, min(s.months_rented, x))
 
-    sched = amortize_schedule(
-        principal=s.mortgage_principal,
-        annual_rate=s.mortgage_annual_rate,
-        term_months=term_months,
+    # Get mortgage configuration (legacy or multi-loan)
+    loans = _get_mortgage_config(s)
+    
+    # Calculate schedule using multi-loan engine
+    sched = amortize_multi_loan(
+        loans=loans,
         horizon_months=x,
+        rate_reset_values=None  # Will be set by sensitivity analysis
     )
 
     # Calculate upfront cash requirement
-    down_payment = s.purchase_price - s.mortgage_principal
+    total_mortgage_principal = sum(loan.principal for loan in loans)
+    down_payment = s.purchase_price - total_mortgage_principal
     cash_required_upfront = down_payment + s.one_off_costs + s.renovation_costs_once
 
     # Cash outflows
@@ -147,7 +194,12 @@ def evaluate_buying(s: BuyingScenario) -> Dict[str, float]:
     monthly_net_cost = []
 
     for m in range(x):
-        mortgage_payment = sched["monthly_payment"] if m < sched["months_paid"] else 0.0
+        # Use monthly_payments array for variable payments (e.g., linear amortization)
+        if m < len(sched["monthly_payments"]):
+            mortgage_payment = sched["monthly_payments"][m]
+        else:
+            mortgage_payment = 0.0
+        
         rent_income = s.monthly_rent_income if m < months_rented else 0.0
 
         monthly_cost = (

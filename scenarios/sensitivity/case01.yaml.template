@@ -13,7 +13,7 @@ tax:
 buying:
   purchase_price: 333000
   mortgage_principal: 330000
-  mortgage_annual_rate: 0.04
+  mortgage_annual_rate: 0.0374
   mortgage_term_years: 30
 
   living_months: 36

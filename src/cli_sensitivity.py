@@ -20,6 +20,7 @@ from src.sensitivity import (
 )
 from src.estate import BuyingScenario
 from src.tax import NLHomeTax2026
+from src.mortgage import MortgageLoan, RateReset
 
 
 def parse_args() -> argparse.Namespace:
@@ -80,6 +81,37 @@ Examples:
     return parser.parse_args()
 
 
+def _convert_mortgage_loans(loans_data):
+    """
+    Convert YAML-loaded mortgage_loans dictionaries to MortgageLoan objects.
+    
+    Args:
+        loans_data: List of dictionaries from YAML
+    
+    Returns:
+        List of MortgageLoan objects
+    """
+    if not loans_data:
+        return None
+    
+    loans = []
+    for loan_dict in loans_data:
+        # Convert rate_resets if present
+        rate_resets = None
+        if 'rate_resets' in loan_dict and loan_dict['rate_resets']:
+            rate_resets = [
+                RateReset(**reset_dict)
+                for reset_dict in loan_dict['rate_resets']
+            ]
+        
+        # Create MortgageLoan object
+        loan_data = loan_dict.copy()
+        loan_data['rate_resets'] = rate_resets
+        loans.append(MortgageLoan(**loan_data))
+    
+    return loans
+
+
 def load_sensitivity_config(path: str) -> Dict[str, Any]:
     """
     Load sensitivity configuration from YAML file.
@@ -115,6 +147,12 @@ def load_sensitivity_config(path: str) -> Dict[str, Any]:
     
     if not config['sensitivity']['variables']:
         raise ValueError("At least one variable must be defined in sensitivity.variables")
+    
+    # Convert mortgage_loans from dictionaries to MortgageLoan objects
+    if 'mortgage_loans' in config['buying'] and config['buying']['mortgage_loans']:
+        config['buying']['mortgage_loans'] = _convert_mortgage_loans(
+            config['buying']['mortgage_loans']
+        )
     
     return config
 

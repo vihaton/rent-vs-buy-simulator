@@ -1,0 +1,77 @@
+name: "Simple Multi-Loan Example - 70/30 Annuity/Linear Split"
+
+# Tax configuration
+tax:
+  woz_value: 351000
+  marginal_tax_rate: 0.3756
+  deduction_cap_rate: 0.3756
+  apply_wet_hillen: true
+  rental_income_tax_rate: 0.0
+
+# Base buying scenario with multi-loan mortgage
+buying:
+  purchase_price: 333000
+  
+  # Multi-loan mortgage configuration
+  mortgage_loans:
+    - percentage: 0.70  # 70% as annuity
+      annual_rate: 0.0351
+      term_years: 30
+      amortization_type: "annuity"
+      label: "Annuity Loan - 70%"
+    
+    - percentage: 0.30  # 30% as linear
+      annual_rate: 0.038
+      term_years: 30
+      amortization_type: "linear"
+      label: "Linear Loan - 30%"
+  
+  # Total mortgage principal
+  mortgage_principal: 325000
+  
+  living_months: 36
+  
+  one_off_costs: 10000
+  renovation_costs_once: 5000
+  monthly_vve: 356
+  monthly_utilities: 300
+  
+  monthly_rent_income: 0
+  months_rented: 0
+  
+  annual_value_growth: 0.02
+  sold_at_end: true
+  selling_cost_rate: 0.03
+
+# Sensitivity analysis configuration
+sensitivity:
+  variables:
+    # Vary the split between annuity and linear
+    "mortgage_loans[0].percentage":
+      strategy: "linspace"
+      min: 0.5  # 50% annuity
+      max: 1.0  # 100% annuity
+      steps: 6
+    
+    # Vary interest rates
+    "mortgage_loans[0].annual_rate":
+      strategy: "linspace"
+      min: 0.03
+      max: 0.05
+      steps: 5
+    
+    "mortgage_loans[1].annual_rate":
+      strategy: "linspace"
+      min: 0.032
+      max: 0.048
+      steps: 5
+  
+  constraints:
+    - "cash_required_upfront <= 30000"
+    - "avg_net_cost_per_month <= 2000"
+  
+  output:
+    format: "csv"
+    directory: "outputs/sensitivity"
+    filename_prefix: "example"
+    include_timestamp: false

@@ -6,6 +6,8 @@ on buying scenarios by varying parameters across defined ranges and strategies.
 """
 
 import itertools
+import re
+import copy
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -126,6 +128,83 @@ def generate_parameter_space(variables_config: Dict[str, Dict]) -> List[Dict[str
     return param_space
 
 
+def _set_nested_attr(obj: Any, path: str, value: Any):
+    """
+    Set nested attribute using dot notation and array indexing.
+    
+    Handles both object attributes and dictionary keys (for YAML-loaded data).
+    
+    Example: "mortgage_loans[0].annual_rate" sets obj.mortgage_loans[0].annual_rate = value
+    
+    Args:
+        obj: Object to modify
+        path: Nested path (e.g., "mortgage_loans[0].annual_rate")
+        value: Value to set
+    """
+    parts = re.split(r'\.|\[|\]', path)
+    parts = [p for p in parts if p]  # Remove empty strings
+    
+    current = obj
+    for i, part in enumerate(parts[:-1]):
+        if part.isdigit():
+            current = current[int(part)]
+        else:
+            # Handle both object attributes and dictionary keys
+            if isinstance(current, dict):
+                current = current[part]
+            else:
+                current = getattr(current, part)
+    
+    final_part = parts[-1]
+    if final_part.isdigit():
+        current[int(final_part)] = value
+    else:
+        # Handle both object attributes and dictionary keys
+        if isinstance(current, dict):
+            current[final_part] = value
+        else:
+            setattr(current, final_part, value)
+
+
+def _apply_nested_params(base_scenario: BuyingScenario, params: Dict[str, Any]) -> BuyingScenario:
+    """
+    Apply parameters including nested ones to scenario.
+    
+    Examples:
+        "mortgage_loans[0].annual_rate" -> scenario.mortgage_loans[0].annual_rate = value
+        "mortgage_loans[1].rate_resets[0].new_rate_default" -> ...
+    
+    Args:
+        base_scenario: Base scenario to modify
+        params: Dictionary of parameters to apply
+    
+    Returns:
+        Modified scenario copy
+    """
+    scenario = copy.deepcopy(base_scenario)
+    
+    simple_params = {}
+    nested_params = {}
+    
+    for param_path, value in params.items():
+        if '.' not in param_path and '[' not in param_path:
+            # Simple parameter
+            simple_params[param_path] = value
+        else:
+            # Nested parameter
+            nested_params[param_path] = value
+    
+    # Apply simple parameters using dataclasses.replace
+    if simple_params:
+        scenario = replace(scenario, **simple_params)
+    
+    # Apply nested parameters
+    for param_path, value in nested_params.items():
+        _set_nested_attr(scenario, param_path, value)
+    
+    return scenario
+
+
 def run_sensitivity_analysis(
     base_scenario: BuyingScenario,
     param_space: List[Dict[str, float]],
@@ -134,6 +213,10 @@ def run_sensitivity_analysis(
 ) -> pd.DataFrame:
     """
     Run sensitivity analysis over parameter space.
+    
+    Supports both simple and nested parameters:
+    - Simple: "purchase_price", "monthly_vve"
+    - Nested: "mortgage_loans[0].annual_rate", "mortgage_loans[1].rate_resets[0].new_rate_default"
     
     Args:
         base_scenario: Base BuyingScenario with default values
@@ -155,11 +238,10 @@ def run_sensitivity_analysis(
     
     for i, params in enumerate(param_space):
         try:
-            # Create scenario with updated parameters
-            # Use dataclasses.replace() to create a new instance with updated values
-            scenario = replace(base_scenario, **params)
+            # Create scenario with updated parameters (supports nested)
+            scenario = _apply_nested_params(base_scenario, params)
             
-            # Override tax if provided (replace doesn't handle this well)
+            # Override tax if provided
             if tax is not None:
                 scenario = replace(scenario, tax=tax)
             
@@ -178,6 +260,8 @@ def run_sensitivity_analysis(
             errors += 1
             if verbose:
                 print(f"Error evaluating combination {i+1}: {e}")
+                print(f"  Parameters: {params}")
+                print(f"  Error: {str(e)}")
             continue
         
         # Progress reporting
