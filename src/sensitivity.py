@@ -8,7 +8,8 @@ on buying scenarios by varying parameters across defined ranges and strategies.
 import itertools
 import re
 import copy
-from dataclasses import asdict, replace
+import json
+from dataclasses import replace, fields
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime
@@ -180,6 +181,9 @@ def _apply_nested_params(base_scenario: BuyingScenario, params: Dict[str, Any]) 
     
     Returns:
         Modified scenario copy
+        
+    Raises:
+        AttributeError: If parameter path is invalid (with helpful error message)
     """
     scenario = copy.deepcopy(base_scenario)
     
@@ -196,11 +200,27 @@ def _apply_nested_params(base_scenario: BuyingScenario, params: Dict[str, Any]) 
     
     # Apply simple parameters using dataclasses.replace
     if simple_params:
-        scenario = replace(scenario, **simple_params)
+        try:
+            scenario = replace(scenario, **simple_params)
+        except TypeError as e:
+            # Get valid field names from the dataclass
+            valid_fields = [f.name for f in fields(BuyingScenario)]
+            invalid_params = [p for p in simple_params.keys() if p not in valid_fields]
+            raise ValueError(
+                f"Invalid parameter(s): {', '.join(invalid_params)}. "
+                f"Valid BuyingScenario fields: {', '.join(valid_fields)}"
+            ) from e
     
     # Apply nested parameters
     for param_path, value in nested_params.items():
-        _set_nested_attr(scenario, param_path, value)
+        try:
+            _set_nested_attr(scenario, param_path, value)
+        except (AttributeError, KeyError, IndexError) as e:
+            raise AttributeError(
+                f"Invalid parameter path '{param_path}': {e}. "
+                f"Check for typos (e.g., 'morgage_loans' vs 'mortgage_loans') "
+                f"and verify the path exists in the scenario."
+            ) from e
     
     return scenario
 
@@ -229,12 +249,16 @@ def run_sensitivity_analysis(
         
     Note:
         The 'monthly_net_cost' list is excluded from the DataFrame to reduce size.
+        
+    Raises:
+        ValueError: If first evaluation fails (likely due to invalid parameter names)
     """
     if verbose:
         print(f"Running sensitivity analysis with {len(param_space):,} parameter combinations...")
     
     results = []
     errors = 0
+    first_error = None
     
     for i, params in enumerate(param_space):
         try:
@@ -258,10 +282,23 @@ def run_sensitivity_analysis(
             
         except Exception as e:
             errors += 1
+            
+            # Capture first error for better diagnostics
+            if first_error is None:
+                first_error = (i, params, e)
+            
+            # Fail fast on first error to provide immediate feedback
+            if i == 0:
+                raise ValueError(
+                    f"First scenario evaluation failed. This usually indicates an invalid parameter name.\n"
+                    f"Parameters: {params}\n"
+                    f"Error: {str(e)}\n"
+                    f"Hint: Check for typos in parameter names (e.g., 'morgage_loans' vs 'mortgage_loans')"
+                ) from e
+            
             if verbose:
                 print(f"Error evaluating combination {i+1}: {e}")
                 print(f"  Parameters: {params}")
-                print(f"  Error: {str(e)}")
             continue
         
         # Progress reporting
@@ -271,6 +308,19 @@ def run_sensitivity_analysis(
     
     if verbose:
         print(f"Completed: {len(results):,} successful evaluations, {errors} errors")
+    
+    # Warn if all evaluations failed
+    if len(results) == 0 and errors > 0:
+        if first_error:
+            i, params, e = first_error
+            raise ValueError(
+                f"All {errors} scenario evaluations failed. First error:\n"
+                f"Parameters: {params}\n"
+                f"Error: {str(e)}\n"
+                f"Hint: Check for typos in parameter names in your config file."
+            )
+        else:
+            raise ValueError(f"All {errors} scenario evaluations failed with unknown errors.")
     
     # Convert to DataFrame
     df = pd.DataFrame(results)
@@ -294,10 +344,17 @@ def apply_constraints(
         Filtered DataFrame
         
     Raises:
-        ValueError: If constraint expression is invalid
+        ValueError: If constraint expression is invalid or DataFrame is empty
     """
     if not constraints:
         return results_df
+    
+    # Check if DataFrame is empty
+    if len(results_df) == 0:
+        raise ValueError(
+            "Cannot apply constraints to empty results DataFrame. "
+            "All scenario evaluations failed. Check the error messages above for details."
+        )
     
     filtered_df = results_df.copy()
     
@@ -305,7 +362,12 @@ def apply_constraints(
         try:
             filtered_df = filtered_df.query(constraint)
         except Exception as e:
-            raise ValueError(f"Invalid constraint '{constraint}': {e}")
+            # Provide more helpful error message
+            available_columns = list(results_df.columns)
+            raise ValueError(
+                f"Invalid constraint '{constraint}': {e}\n"
+                f"Available columns: {', '.join(available_columns)}"
+            )
     
     return filtered_df
 
@@ -488,7 +550,6 @@ def export_results(
     
     # Save metadata if provided
     if metadata:
-        import json
         metadata_path = output_dir / f"{filename}_metadata.json"
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2, default=str)
