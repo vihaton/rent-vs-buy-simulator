@@ -166,10 +166,15 @@ class TimeSteppingSimulator:
             # Also update the scenario's mortgage_principal field
             scenario_year.mortgage_principal = mortgage_balance
             
-            # Update mortgage rates if refinancing occurs at the start of this year
-            # Convert year to month (year 1 = month 12, year 2 = month 24, etc.)
-            current_month = year * 12
-            scenario_year = self._apply_mortgage_rates(scenario_year, current_month, mortgage_rate)
+            # Update mortgage rates if refinancing occurs during this year
+            # Year N simulates months from (N-1)*12+1 to N*12 (1-indexed)
+            # But rate_resets use 0-indexed months, so we need to check if any reset
+            # falls within the 0-indexed range [(N-1)*12 to N*12-1]
+            year_start_month_0indexed = (year - 1) * 12
+            year_end_month_0indexed = year * 12 - 1
+            scenario_year = self._apply_mortgage_rates(
+                scenario_year, year_start_month_0indexed, year_end_month_0indexed, mortgage_rate
+            )
             
             # Evaluate this year
             result = evaluate_buying(scenario_year)
@@ -227,18 +232,20 @@ class TimeSteppingSimulator:
     def _apply_mortgage_rates(
         self,
         scenario: BuyingScenario,
-        current_month: int,
+        year_start_month: int,
+        year_end_month: int,
         new_rate: float
     ) -> BuyingScenario:
         """
-        Apply mortgage rate for refinancing events that occur in the current period.
+        Apply mortgage rate for refinancing events that occur during the current year.
         
         This method only updates rates when an actual rate reset occurs.
         During fixed-rate periods, the original loan rates are preserved.
         
         Args:
             scenario: Scenario to update
-            current_month: Current month in the simulation (0-indexed)
+            year_start_month: Start month of year being simulated (0-indexed, inclusive)
+            year_end_month: End month of year being simulated (0-indexed, inclusive)
             new_rate: New rate from Markov regime (used for rate resets)
         
         Returns:
@@ -249,15 +256,20 @@ class TimeSteppingSimulator:
             # Legacy format doesn't have rate resets, so keep original rate
             pass
         
-        # For multi-loan format, check if any rate resets occur this month
+        # For multi-loan format, check if any rate resets occur during this year
         if scenario.mortgage_loans is not None:
             for loan in scenario.mortgage_loans:
                 if loan.rate_resets is not None:
                     for reset in loan.rate_resets:
-                        # Check if reset occurs exactly at this month
-                        if reset.month == current_month:
-                            # Apply the new rate from Markov regime
-                            reset.new_rate_default = new_rate
+                        # Check if reset occurs within this year's month range
+                        # Note: reset.month is 0-indexed (month 60 = 61st month)
+                        if year_start_month <= reset.month <= year_end_month:
+                            # CRITICAL FIX: Actually update the loan's annual rate
+                            # Clamp the new rate within the specified bounds
+                            clamped_rate = max(reset.new_rate_min, min(reset.new_rate_max, new_rate))
+                            loan.annual_rate = clamped_rate
+                            # Also update the reset default for consistency
+                            reset.new_rate_default = clamped_rate
         
         return scenario
 

@@ -425,6 +425,79 @@ def plot_monthly_payment_distributions(
     return ax
 
 
+def plot_2d_wealth_vs_payment_scatter(
+    summary_df: pd.DataFrame,
+    trajectories_df: pd.DataFrame,
+    ax: Optional[plt.Axes] = None
+) -> plt.Axes:
+    """
+    Plot 2D scatter of final wealth vs average monthly payment.
+    
+    Each scenario appears as a "blob" showing the distribution of outcomes.
+    
+    Args:
+        summary_df: Summary DataFrame with final_wealth
+        trajectories_df: Trajectory DataFrame with monthly_payment
+        ax: Matplotlib axes (creates new if None)
+    
+    Returns:
+        Matplotlib axes
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(12, 8))
+    
+    scenarios = sorted(summary_df['scenario_label'].unique())
+    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
+    
+    for i, scenario in enumerate(scenarios):
+        # Get final wealth for each sample
+        scenario_summary = summary_df[summary_df['scenario_label'] == scenario]
+        
+        # Calculate average monthly payment per sample across all years
+        scenario_traj = trajectories_df[trajectories_df['scenario_label'] == scenario]
+        avg_payments = scenario_traj.groupby('sample_id')['monthly_payment'].mean()
+        
+        # Merge to get both metrics per sample
+        plot_data = scenario_summary.set_index('sample_id')[['final_wealth']].join(
+            avg_payments.rename('avg_monthly_payment')
+        )
+        
+        # Plot as scatter with transparency to show density
+        ax.scatter(
+            plot_data['avg_monthly_payment'],
+            plot_data['final_wealth'],
+            alpha=0.6,
+            s=50,
+            color=colors[i],
+            label=scenario,
+            edgecolors='white',
+            linewidth=0.5
+        )
+        
+        # Add mean marker
+        mean_payment = plot_data['avg_monthly_payment'].mean()
+        mean_wealth = plot_data['final_wealth'].mean()
+        ax.scatter(
+            mean_payment,
+            mean_wealth,
+            s=200,
+            color=colors[i],
+            marker='*',
+            edgecolors='black',
+            linewidth=2,
+            zorder=10
+        )
+    
+    ax.set_xlabel('Average Monthly Payment (€)', fontsize=12)
+    ax.set_ylabel('Final Wealth (€)', fontsize=12)
+    ax.set_title('Final Wealth vs Monthly Payment Distribution\n(★ = mean)', fontsize=14)
+    ax.legend(loc='best', framealpha=0.9)
+    ax.grid(True, alpha=0.3)
+    ax.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5, label='Break-even')
+    
+    return ax
+
+
 def plot_mortgage_performance_over_time(
     trajectories_df: pd.DataFrame,
     ax: Optional[plt.Axes] = None
@@ -537,14 +610,21 @@ def generate_comparison_plots(
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 8: Monthly Payment Distributions
+        # Plot 8: 2D Wealth vs Payment Scatter
+        fig, ax = plt.subplots(figsize=(12, 8))
+        plot_2d_wealth_vs_payment_scatter(summary_df, trajectories_df, ax=ax)
+        plt.tight_layout()
+        pdf.savefig(fig)
+        plt.close()
+        
+        # Plot 9: Monthly Payment Distributions
         fig, ax = plt.subplots(figsize=(10, 6))
         plot_monthly_payment_distributions(trajectories_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 9: Mortgage Performance Over Time
+        # Plot 10: Mortgage Performance Over Time
         if 'mortgage_balance' in trajectories_df.columns:
             fig, ax = plt.subplots(figsize=(12, 6))
             plot_mortgage_performance_over_time(trajectories_df, ax=ax)
