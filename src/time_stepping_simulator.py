@@ -104,8 +104,15 @@ class TimeSteppingSimulator:
         
         # Initial cash outflow (down payment + one-off costs)
         down_payment = property_value - total_mortgage
-        initial_cashflow = -(down_payment + self.base_scenario.one_off_costs + 
+        initial_cashflow = -(down_payment + self.base_scenario.one_off_costs +
                             self.base_scenario.renovation_costs_once)
+        
+        # CRITICAL: Track current loan rates separately so they persist across years
+        # Initialize with the original loan rates
+        current_loan_rates = {}
+        if self.base_scenario.mortgage_loans is not None:
+            for i, loan in enumerate(self.base_scenario.mortgage_loans):
+                current_loan_rates[i] = loan.annual_rate
         
         state0 = TimeStepState(
             year=0,
@@ -148,7 +155,7 @@ class TimeSteppingSimulator:
             if scenario_year.mortgage_loans is not None:
                 # Update each loan's principal proportionally based on current balance
                 original_total = sum(loan.principal for loan in self._get_loans())
-                for loan in scenario_year.mortgage_loans:
+                for i, loan in enumerate(scenario_year.mortgage_loans):
                     if loan.principal is not None:
                         # Scale down the principal proportionally
                         loan.principal = loan.principal * (mortgage_balance / original_total)
@@ -162,19 +169,30 @@ class TimeSteppingSimulator:
                     original_term_months = loan.term_years * 12
                     remaining_term_months = original_term_months - months_elapsed
                     loan.term_years = remaining_term_months / 12
+                    
+                    # CRITICAL: Apply the current tracked rate (persists across years)
+                    loan.annual_rate = current_loan_rates[i]
             
             # Also update the scenario's mortgage_principal field
             scenario_year.mortgage_principal = mortgage_balance
             
-            # Update mortgage rates if refinancing occurs during this year
+            # Check if any rate resets occur during this year and update tracked rates
             # Year N simulates months from (N-1)*12+1 to N*12 (1-indexed)
             # But rate_resets use 0-indexed months, so we need to check if any reset
             # falls within the 0-indexed range [(N-1)*12 to N*12-1]
             year_start_month_0indexed = (year - 1) * 12
             year_end_month_0indexed = year * 12 - 1
-            scenario_year = self._apply_mortgage_rates(
-                scenario_year, year_start_month_0indexed, year_end_month_0indexed, mortgage_rate
-            )
+            
+            # Update tracked rates if resets occur
+            if scenario_year.mortgage_loans is not None:
+                for i, loan in enumerate(scenario_year.mortgage_loans):
+                    if loan.rate_resets is not None:
+                        for reset in loan.rate_resets:
+                            if year_start_month_0indexed <= reset.month <= year_end_month_0indexed:
+                                # Reset occurs this year - update tracked rate
+                                clamped_rate = max(reset.new_rate_min, min(reset.new_rate_max, mortgage_rate))
+                                current_loan_rates[i] = clamped_rate
+                                loan.annual_rate = clamped_rate
             
             # Evaluate this year
             result = evaluate_buying(scenario_year)
@@ -206,6 +224,17 @@ class TimeSteppingSimulator:
             # Monthly payment (average for the year)
             monthly_payment = (annual_interest + annual_principal) / 12
             
+            # Get the actual loan rate (weighted average if multiple loans)
+            actual_loan_rate = mortgage_rate  # Default to market rate
+            if scenario_year.mortgage_loans is not None and len(scenario_year.mortgage_loans) > 0:
+                # Calculate weighted average of loan rates
+                total_principal = sum(loan.principal for loan in scenario_year.mortgage_loans if loan.principal)
+                if total_principal > 0:
+                    actual_loan_rate = sum(
+                        loan.annual_rate * loan.principal
+                        for loan in scenario_year.mortgage_loans if loan.principal
+                    ) / total_principal
+            
             state = TimeStepState(
                 year=year,
                 regime=regime,
@@ -218,7 +247,7 @@ class TimeSteppingSimulator:
                 annual_principal_paid=annual_principal,
                 monthly_payment=monthly_payment,
                 property_growth_rate=growth_rate,
-                mortgage_rate=mortgage_rate
+                mortgage_rate=actual_loan_rate  # Use actual loan rate, not market rate
             )
             states.append(state)
         

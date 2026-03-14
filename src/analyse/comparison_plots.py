@@ -498,6 +498,64 @@ def plot_2d_wealth_vs_payment_scatter(
     return ax
 
 
+def plot_monthly_payment_over_time(
+    trajectories_df: pd.DataFrame,
+    ax: Optional[plt.Axes] = None
+) -> plt.Axes:
+    """
+    Plot mean monthly payment over time with P10-P90 range.
+    
+    Args:
+        trajectories_df: Trajectory DataFrame with year and monthly_payment columns
+        ax: Matplotlib axes (creates new if None)
+    
+    Returns:
+        Matplotlib axes
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 6))
+    
+    scenarios = sorted(trajectories_df['scenario_label'].unique())
+    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
+    
+    for i, scenario in enumerate(scenarios):
+        scenario_data = trajectories_df[trajectories_df['scenario_label'] == scenario]
+        
+        # Group by year and calculate statistics
+        yearly_stats = scenario_data.groupby('year')['monthly_payment'].agg([
+            ('mean', 'mean'),
+            ('p10', lambda x: x.quantile(0.1)),
+            ('p90', lambda x: x.quantile(0.9))
+        ]).reset_index()
+        
+        # Plot mean line
+        ax.plot(
+            yearly_stats['year'],
+            yearly_stats['mean'],
+            marker='o',
+            label=scenario,
+            color=colors[i],
+            linewidth=2
+        )
+        
+        # Fill between P10 and P90
+        ax.fill_between(
+            yearly_stats['year'],
+            yearly_stats['p10'],
+            yearly_stats['p90'],
+            alpha=0.2,
+            color=colors[i]
+        )
+    
+    ax.set_xlabel('Year')
+    ax.set_ylabel('Monthly Payment (€)')
+    ax.set_title('Mean Monthly Payment Over Time (with P10-P90 range)')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    
+    return ax
+
+
 def plot_mortgage_performance_over_time(
     trajectories_df: pd.DataFrame,
     ax: Optional[plt.Axes] = None
@@ -617,14 +675,21 @@ def generate_comparison_plots(
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 9: Monthly Payment Distributions
+        # Plot 9: Monthly Payment Over Time
+        fig, ax = plt.subplots(figsize=(10, 6))
+        plot_monthly_payment_over_time(trajectories_df, ax=ax)
+        plt.tight_layout()
+        pdf.savefig(fig)
+        plt.close()
+        
+        # Plot 10: Monthly Payment Distributions
         fig, ax = plt.subplots(figsize=(10, 6))
         plot_monthly_payment_distributions(trajectories_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 10: Mortgage Performance Over Time
+        # Plot 11: Mortgage Performance Over Time
         if 'mortgage_balance' in trajectories_df.columns:
             fig, ax = plt.subplots(figsize=(12, 6))
             plot_mortgage_performance_over_time(trajectories_df, ax=ax)
