@@ -10,6 +10,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 import traceback
+import glob
 
 from src.markov_regime import MarkovChainConfig
 from src.time_stepping_comparison import (
@@ -157,6 +158,26 @@ Output files:
     
     args = parser.parse_args()
     
+    # Expand wildcards in scenario paths
+    expanded_scenarios = []
+    for pattern in args.scenarios:
+        # Use glob to expand wildcards
+        matches = glob.glob(pattern)
+        if matches:
+            # Sort for consistent ordering
+            expanded_scenarios.extend(sorted(matches))
+        else:
+            # If no matches, keep the original pattern (will fail validation below)
+            expanded_scenarios.append(pattern)
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    args.scenarios = []
+    for scenario in expanded_scenarios:
+        if scenario not in seen:
+            seen.add(scenario)
+            args.scenarios.append(scenario)
+    
     # Determine markov config path based on matrix type or custom path
     if args.markov_config:
         markov_config_path = args.markov_config
@@ -168,6 +189,7 @@ Output files:
             'empirical': 'scenarios/markov/empirical_matrix.yaml'
         }
         markov_config_path = matrix_files[args.matrix_type]
+    markov_str = Path(markov_config_path).name.split('_')[0]
     
     # Validate inputs
     if not Path(markov_config_path).exists():
@@ -186,7 +208,7 @@ Output files:
     # Create output directory with number of scenarios and timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     n_scenarios = len(args.scenarios)
-    output_dir_name = f"{args.output}_{n_scenarios}s_{timestamp}"
+    output_dir_name = f"{args.output}_{n_scenarios}s_{markov_str}_{timestamp}"
     output_dir = Path(output_dir_name)
     
     if args.verbose:

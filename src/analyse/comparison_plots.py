@@ -431,9 +431,9 @@ def plot_2d_wealth_vs_payment_scatter(
     ax: Optional[plt.Axes] = None
 ) -> plt.Axes:
     """
-    Plot 2D scatter of final wealth vs average monthly payment.
+    Plot 2D scatter of final wealth vs average monthly payment with P10-P90 ranges.
     
-    Each scenario appears as a "blob" showing the distribution of outcomes.
+    Shows mean as a star marker with rectangles showing P10-P90 ranges for each metric.
     
     Args:
         summary_df: Summary DataFrame with final_wealth
@@ -462,38 +462,72 @@ def plot_2d_wealth_vs_payment_scatter(
             avg_payments.rename('avg_monthly_payment')
         )
         
-        # Plot as scatter with transparency to show density
+        # Calculate statistics
+        payment_mean = plot_data['avg_monthly_payment'].mean()
+        payment_p10 = plot_data['avg_monthly_payment'].quantile(0.1)
+        payment_p90 = plot_data['avg_monthly_payment'].quantile(0.9)
+        
+        wealth_mean = plot_data['final_wealth'].mean()
+        wealth_p10 = plot_data['final_wealth'].quantile(0.1)
+        wealth_p90 = plot_data['final_wealth'].quantile(0.9)
+        
+        # Draw rectangle showing P10-P90 range
+        from matplotlib.patches import Rectangle
+        rect_width = payment_p90 - payment_p10
+        rect_height = wealth_p90 - wealth_p10
+        rect = Rectangle(
+            (payment_p10, wealth_p10),
+            rect_width,
+            rect_height,
+            linewidth=2,
+            edgecolor=colors[i],
+            facecolor=colors[i],
+            alpha=0.2,
+            label=None
+        )
+        ax.add_patch(rect)
+        
+        # Plot as scatter with very low transparency
         ax.scatter(
             plot_data['avg_monthly_payment'],
             plot_data['final_wealth'],
-            alpha=0.6,
+            alpha=0.05,
             s=50,
             color=colors[i],
-            label=scenario,
-            edgecolors='white',
-            linewidth=0.5
+            label=None,
+            edgecolors='none',
+            linewidth=0
         )
         
-        # Add mean marker
-        mean_payment = plot_data['avg_monthly_payment'].mean()
-        mean_wealth = plot_data['final_wealth'].mean()
+        # Plot mean as star
         ax.scatter(
-            mean_payment,
-            mean_wealth,
-            s=200,
-            color=colors[i],
+            payment_mean,
+            wealth_mean,
             marker='*',
+            s=400,
+            color=colors[i],
             edgecolors='black',
-            linewidth=2,
-            zorder=10
+            linewidths=1.5,
+            zorder=10,
+            label=scenario
+        )
+        
+        # Add text label near the mean
+        ax.annotate(
+            scenario,
+            (payment_mean, wealth_mean),
+            xytext=(10, 10),
+            textcoords='offset points',
+            fontsize=9,
+            bbox=dict(boxstyle='round,pad=0.3', facecolor=colors[i], alpha=0.3)
         )
     
     ax.set_xlabel('Average Monthly Payment (€)', fontsize=12)
     ax.set_ylabel('Final Wealth (€)', fontsize=12)
-    ax.set_title('Final Wealth vs Monthly Payment Distribution\n(★ = mean)', fontsize=14)
+    ax.set_title('Final Wealth vs Monthly Payment (★ = mean, shaded = P10-P90 range)', fontsize=14)
     ax.legend(loc='best', framealpha=0.9)
     ax.grid(True, alpha=0.3)
-    ax.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5, label='Break-even')
+    ax.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5)
     
     return ax
 
@@ -719,8 +753,9 @@ def plot_wealth_vs_cash_outflow(
     ax: Optional[plt.Axes] = None
 ) -> plt.Axes:
     """
-    Plot final wealth vs total cash outflow as scatter plot.
+    Plot final wealth vs total cash outflow with P10-P90 ranges.
     
+    Shows mean as a star marker with rectangles showing P10-P90 ranges for each metric.
     This shows the relationship between how much you spent and what wealth you achieved.
     
     Args:
@@ -731,7 +766,7 @@ def plot_wealth_vs_cash_outflow(
         Matplotlib axes
     """
     if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=(10, 8))
     
     scenarios = sorted(summary_df['scenario_label'].unique())
     colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
@@ -739,31 +774,77 @@ def plot_wealth_vs_cash_outflow(
     for i, scenario in enumerate(scenarios):
         scenario_data = summary_df[summary_df['scenario_label'] == scenario]
         
+        # Calculate statistics
+        outflow_mean = scenario_data['total_cash_outflow'].mean()
+        outflow_p10 = scenario_data['total_cash_outflow'].quantile(0.1)
+        outflow_p90 = scenario_data['total_cash_outflow'].quantile(0.9)
+        
+        wealth_mean = scenario_data['final_wealth'].mean()
+        wealth_p10 = scenario_data['final_wealth'].quantile(0.1)
+        wealth_p90 = scenario_data['final_wealth'].quantile(0.9)
+        
+        # Draw rectangle showing P10-P90 range
+        from matplotlib.patches import Rectangle
+        rect_width = outflow_p90 - outflow_p10
+        rect_height = wealth_p90 - wealth_p10
+        rect = Rectangle(
+            (outflow_p10, wealth_p10),
+            rect_width,
+            rect_height,
+            linewidth=2,
+            edgecolor=colors[i],
+            facecolor=colors[i],
+            alpha=0.2,
+            label=None
+        )
+        ax.add_patch(rect)
+        
+        # Plot as scatter with very low transparency
         ax.scatter(
             scenario_data['total_cash_outflow'],
             scenario_data['final_wealth'],
-            alpha=0.5,
+            alpha=0.05,
             s=30,
             color=colors[i],
+            label=None,
+            edgecolors='none'
+        )
+        
+        # Plot mean as star
+        ax.scatter(
+            outflow_mean,
+            wealth_mean,
+            marker='*',
+            s=400,
+            color=colors[i],
+            edgecolors='black',
+            linewidths=1.5,
+            zorder=10,
             label=scenario
         )
         
-        # Add mean marker
-        mean_outflow = scenario_data['total_cash_outflow'].mean()
-        mean_wealth = scenario_data['final_wealth'].mean()
-        ax.scatter(mean_outflow, mean_wealth, marker='*', s=300,
-                  color=colors[i], edgecolors='black', linewidths=1.5, zorder=10)
+        # Add text label near the mean
+        ax.annotate(
+            scenario,
+            (outflow_mean, wealth_mean),
+            xytext=(10, 10),
+            textcoords='offset points',
+            fontsize=9,
+            bbox=dict(boxstyle='round,pad=0.3', facecolor=colors[i], alpha=0.3)
+        )
     
     ax.set_xlabel('Total Cash Outflow (€)')
     ax.set_ylabel('Final Wealth (€)')
-    ax.set_title('Final Wealth vs Total Cash Spent')
-    ax.legend()
+    ax.set_title('Final Wealth vs Total Cash Spent (★ = mean, shaded = P10-P90 range)')
     ax.grid(True, alpha=0.3)
-    ax.axhline(y=0, color='black', linestyle='--', linewidth=0.5)
+    ax.axhline(y=0, color='black', linestyle='--', linewidth=0.5, alpha=0.5)
     
     # Add diagonal line showing ROI = 0 (wealth = -outflow)
     xlim = ax.get_xlim()
     ax.plot(xlim, [-xlim[0], -xlim[1]], 'r--', alpha=0.3, linewidth=1, label='ROI = 0')
+    
+    # Add legend after all plot elements are added
+    ax.legend(loc='best')
     
     return ax
 

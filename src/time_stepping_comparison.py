@@ -54,9 +54,12 @@ def load_scenario(scenario_path: str) -> Tuple[BuyingScenario, str]:
     if 'mortgage_loans' in config:
         mortgage_loans = []
         for loan_config in config['mortgage_loans']:
+            term_years = loan_config['term_years']
+            fixed_period_years = loan_config.get('fixed_period_years')
+            
             # Parse rate resets if present
             rate_resets = None
-            if 'rate_resets' in loan_config:
+            if 'rate_resets' in loan_config and loan_config['rate_resets'] is not None:
                 rate_resets = []
                 for reset_config in loan_config['rate_resets']:
                     rate_resets.append(RateReset(
@@ -65,6 +68,25 @@ def load_scenario(scenario_path: str) -> Tuple[BuyingScenario, str]:
                         new_rate_max=reset_config.get('new_rate_max', 0.10),
                         new_rate_default=reset_config.get('new_rate_default')
                     ))
+            elif fixed_period_years is not None and fixed_period_years < term_years:
+                # Auto-generate rate resets based on fixed_period_years
+                # Generate resets at each fixed period boundary until term ends
+                rate_resets = []
+                reset_month = fixed_period_years * 12
+                
+                # Get default rate bounds from first explicit reset if any, otherwise use defaults
+                default_min = 0.02
+                default_max = 0.08
+                default_rate = loan_config['annual_rate']  # Use initial rate as default
+                
+                while reset_month < term_years * 12:
+                    rate_resets.append(RateReset(
+                        month=reset_month,
+                        new_rate_min=default_min,
+                        new_rate_max=default_max,
+                        new_rate_default=default_rate
+                    ))
+                    reset_month += fixed_period_years * 12
             
             # Parse amortization type
             amort_type_str = loan_config.get('amortization_type', 'ANNUITY').upper()
@@ -74,9 +96,9 @@ def load_scenario(scenario_path: str) -> Tuple[BuyingScenario, str]:
                 principal=loan_config.get('principal'),
                 percentage=loan_config.get('percentage', loan_config.get('principal_percentage')),
                 annual_rate=loan_config['annual_rate'],
-                term_years=loan_config['term_years'],
+                term_years=term_years,
                 amortization_type=amort_type,
-                fixed_period_years=loan_config.get('fixed_period_years'),
+                fixed_period_years=fixed_period_years,
                 rate_resets=rate_resets,
                 label=loan_config.get('label', 'Loan')
             ))
