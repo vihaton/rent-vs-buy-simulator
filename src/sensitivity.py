@@ -31,10 +31,13 @@ def _generate_values_for_strategy(
     Args:
         param_name: Name of parameter (for error messages)
         config: Strategy configuration dict with keys:
-            - strategy: 'linspace', 'logspace', 'random', or 'values'
+            - strategy: 'linspace', 'logspace', 'random', 'values', 'normal', 'mixture', 'triangular'
             - For linspace/logspace: min, max, steps
-            - For random: min, max, samples (default 100)
+            - For random: min, max, samples (default 100), seed (optional)
             - For values: values (list)
+            - For normal: mean, std, samples (default 1000), seed (optional), min/max (optional truncation)
+            - For mixture: components (list of dicts with weight, mean, std), samples, seed, min/max (optional)
+            - For triangular: min, mode, max, samples (default 1000), seed (optional)
     
     Returns:
         Numpy array of values
@@ -60,13 +63,98 @@ def _generate_values_for_strategy(
             raise ValueError(f"Parameter '{param_name}': min must be less than max")
         return np.logspace(np.log10(config['min']), np.log10(config['max']), config['steps'])
     
-    elif strategy == 'random':
+    elif strategy == 'random' or strategy == 'uniform':
         if 'min' not in config or 'max' not in config:
-            raise ValueError(f"Parameter '{param_name}': random requires min and max")
+            raise ValueError(f"Parameter '{param_name}': {strategy} requires min and max")
         if config['min'] >= config['max']:
             raise ValueError(f"Parameter '{param_name}': min must be less than max")
         samples = config.get('samples', 100)
-        return np.random.uniform(config['min'], config['max'], samples)
+        seed = config.get('seed')
+        rng = np.random.default_rng(seed)
+        return rng.uniform(config['min'], config['max'], samples)
+    
+    elif strategy == 'normal':
+        if 'mean' not in config or 'std' not in config:
+            raise ValueError(f"Parameter '{param_name}': normal requires mean and std")
+        samples = config.get('samples', 1000)
+        seed = config.get('seed')
+        rng = np.random.default_rng(seed)
+        values = rng.normal(config['mean'], config['std'], samples)
+        
+        # Optional: truncation
+        if 'min' in config:
+            values = np.maximum(values, config['min'])
+        if 'max' in config:
+            values = np.minimum(values, config['max'])
+        
+        return values
+    
+    elif strategy == 'mixture':
+        if 'components' not in config:
+            raise ValueError(f"Parameter '{param_name}': mixture requires 'components' list")
+        
+        components = config['components']
+        if not components:
+            raise ValueError(f"Parameter '{param_name}': mixture requires at least one component")
+        
+        samples = config.get('samples', 1000)
+        seed = config.get('seed')
+        rng = np.random.default_rng(seed)
+        
+        # Validate mixture weights sum to 1
+        weights = [c.get('weight', 0) for c in components]
+        if not np.isclose(sum(weights), 1.0, atol=1e-6):
+            raise ValueError(
+                f"Parameter '{param_name}': mixture weights must sum to 1.0, got {sum(weights):.6f}"
+            )
+        
+        # Validate each component has required fields
+        for i, component in enumerate(components):
+            if 'mean' not in component or 'std' not in component:
+                raise ValueError(
+                    f"Parameter '{param_name}': component {i} requires 'mean' and 'std'"
+                )
+        
+        # Sample regime indices according to weights
+        regime_indices = rng.choice(
+            len(components),
+            size=samples,
+            p=weights
+        )
+        
+        # Sample from each regime's distribution
+        values = np.zeros(samples)
+        for i, component in enumerate(components):
+            mask = regime_indices == i
+            n_samples_regime = mask.sum()
+            
+            if n_samples_regime > 0:
+                regime_values = rng.normal(
+                    component['mean'],
+                    component['std'],
+                    n_samples_regime
+                )
+                values[mask] = regime_values
+        
+        # Optional: truncation
+        if 'min' in config:
+            values = np.maximum(values, config['min'])
+        if 'max' in config:
+            values = np.minimum(values, config['max'])
+        
+        return values
+    
+    elif strategy == 'triangular':
+        if 'min' not in config or 'mode' not in config or 'max' not in config:
+            raise ValueError(f"Parameter '{param_name}': triangular requires min, mode, and max")
+        if not (config['min'] <= config['mode'] <= config['max']):
+            raise ValueError(
+                f"Parameter '{param_name}': triangular requires min <= mode <= max"
+            )
+        samples = config.get('samples', 1000)
+        seed = config.get('seed')
+        rng = np.random.default_rng(seed)
+        return rng.triangular(config['min'], config['mode'], config['max'], samples)
     
     elif strategy == 'values':
         if 'values' not in config:
@@ -74,8 +162,10 @@ def _generate_values_for_strategy(
         return np.array(config['values'])
     
     else:
-        raise ValueError(f"Parameter '{param_name}': unknown strategy '{strategy}'. "
-                        f"Use 'linspace', 'logspace', 'random', or 'values'")
+        raise ValueError(
+            f"Parameter '{param_name}': unknown strategy '{strategy}'. "
+            f"Use 'linspace', 'logspace', 'random', 'uniform', 'normal', 'mixture', 'triangular', or 'values'"
+        )
 
 
 def generate_parameter_space(variables_config: Dict[str, Dict]) -> List[Dict[str, float]]:
