@@ -574,3 +574,113 @@ class TestExportResults:
         
         with pytest.raises(ValueError, match="Unsupported format"):
             export_results(sample_dataframe, output_config)
+
+
+class TestWildcardParameterPaths:
+    """Tests for wildcard syntax in parameter paths."""
+    
+    def test_wildcard_applies_to_all_list_elements(self):
+        """Test that wildcard [*] applies value to all elements in a list."""
+        from src.sensitivity import _set_nested_attr
+        from src.mortgage import MortgageLoan
+        
+        # Create a mock object with a list of mortgage loans
+        class MockScenario:
+            def __init__(self):
+                self.mortgage_loans = [
+                    MortgageLoan(
+                        principal=100000,
+                        annual_rate=0.03,
+                        term_years=30,
+                        amortization_type="annuity",
+                        fixed_period_years=10,
+                        rate_resets=[
+                            type('RateReset', (), {'month': 120, 'new_rate_default': 0.04})()
+                        ]
+                    ),
+                    MortgageLoan(
+                        principal=50000,
+                        annual_rate=0.035,
+                        term_years=30,
+                        amortization_type="linear",
+                        fixed_period_years=10,
+                        rate_resets=[
+                            type('RateReset', (), {'month': 120, 'new_rate_default': 0.04})()
+                        ]
+                    )
+                ]
+        
+        scenario = MockScenario()
+        
+        # Apply wildcard parameter
+        _set_nested_attr(scenario, "mortgage_loans[*].rate_resets[0].new_rate_default", 0.05)
+        
+        # Verify all loans were updated
+        assert scenario.mortgage_loans[0].rate_resets[0].new_rate_default == 0.05
+        assert scenario.mortgage_loans[1].rate_resets[0].new_rate_default == 0.05
+    
+    def test_wildcard_with_simple_attribute(self):
+        """Test wildcard with simple attribute (not nested)."""
+        from src.sensitivity import _set_nested_attr
+        from src.mortgage import MortgageLoan
+        
+        class MockScenario:
+            def __init__(self):
+                self.mortgage_loans = [
+                    MortgageLoan(
+                        principal=100000,
+                        annual_rate=0.03,
+                        term_years=30,
+                        amortization_type="annuity",
+                        fixed_period_years=10
+                    ),
+                    MortgageLoan(
+                        principal=50000,
+                        annual_rate=0.035,
+                        term_years=30,
+                        amortization_type="linear",
+                        fixed_period_years=10
+                    )
+                ]
+        
+        scenario = MockScenario()
+        
+        # Apply wildcard to simple attribute
+        _set_nested_attr(scenario, "mortgage_loans[*].annual_rate", 0.04)
+        
+        # Verify all loans were updated
+        assert scenario.mortgage_loans[0].annual_rate == 0.04
+        assert scenario.mortgage_loans[1].annual_rate == 0.04
+    
+    def test_wildcard_on_non_list_raises_error(self):
+        """Test that wildcard on non-list object raises ValueError."""
+        from src.sensitivity import _set_nested_attr
+        
+        class MockScenario:
+            def __init__(self):
+                self.single_loan = type('Loan', (), {'rate': 0.03})()
+        
+        scenario = MockScenario()
+        
+        # Should raise error when wildcard used on non-list
+        with pytest.raises(ValueError, match="Wildcard.*used on non-list"):
+            _set_nested_attr(scenario, "single_loan[*].rate", 0.04)
+    
+    def test_rebuild_path_from_parts(self):
+        """Test path reconstruction from parts."""
+        from src.sensitivity import _rebuild_path_from_parts
+        
+        # Test simple path
+        parts = ['mortgage_loans', '0', 'annual_rate']
+        path = _rebuild_path_from_parts(parts)
+        assert path == 'mortgage_loans[0].annual_rate'
+        
+        # Test path with wildcard
+        parts = ['mortgage_loans', '*', 'rate_resets', '0', 'new_rate_default']
+        path = _rebuild_path_from_parts(parts)
+        assert path == 'mortgage_loans[*].rate_resets[0].new_rate_default'
+        
+        # Test empty parts
+        parts = []
+        path = _rebuild_path_from_parts(parts)
+        assert path == ''

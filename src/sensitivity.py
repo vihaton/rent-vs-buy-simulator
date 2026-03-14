@@ -224,37 +224,103 @@ def _set_nested_attr(obj: Any, path: str, value: Any):
     Set nested attribute using dot notation and array indexing.
     
     Handles both object attributes and dictionary keys (for YAML-loaded data).
+    Supports wildcard syntax [*] to apply value to all elements in a list.
     
-    Example: "mortgage_loans[0].annual_rate" sets obj.mortgage_loans[0].annual_rate = value
+    Examples:
+        "mortgage_loans[0].annual_rate" sets obj.mortgage_loans[0].annual_rate = value
+        "mortgage_loans[*].annual_rate" sets annual_rate for ALL mortgage loans
+        "mortgage_loans[*].rate_resets[0].new_rate_default" sets new_rate_default for first reset of ALL loans
     
     Args:
         obj: Object to modify
-        path: Nested path (e.g., "mortgage_loans[0].annual_rate")
+        path: Nested path (e.g., "mortgage_loans[0].annual_rate" or "mortgage_loans[*].annual_rate")
         value: Value to set
     """
     parts = re.split(r'\.|\[|\]', path)
     parts = [p for p in parts if p]  # Remove empty strings
     
-    current = obj
-    for i, part in enumerate(parts[:-1]):
-        if part.isdigit():
-            current = current[int(part)]
+    # Check if path contains wildcard
+    if '*' in parts:
+        # Find the position of the wildcard
+        wildcard_idx = parts.index('*')
+        
+        # Navigate to the list that contains the wildcard
+        current = obj
+        for i, part in enumerate(parts[:wildcard_idx]):
+            if part.isdigit():
+                current = current[int(part)]
+            else:
+                # Handle both object attributes and dictionary keys
+                if isinstance(current, dict):
+                    current = current[part]
+                else:
+                    current = getattr(current, part)
+        
+        # Current should now be a list
+        if not isinstance(current, list):
+            raise ValueError(
+                f"Wildcard [*] used on non-list object at path '{path}'. "
+                f"Object type: {type(current).__name__}"
+            )
+        
+        # Build the remaining path after the wildcard
+        remaining_parts = parts[wildcard_idx + 1:]
+        if remaining_parts:
+            remaining_path = _rebuild_path_from_parts(remaining_parts)
+            # Recursively apply to each element in the list
+            for item in current:
+                _set_nested_attr(item, remaining_path, value)
+        else:
+            # Wildcard is at the end, set value directly on each list element
+            for i in range(len(current)):
+                current[i] = value
+    else:
+        # No wildcard - standard nested attribute setting
+        current = obj
+        for i, part in enumerate(parts[:-1]):
+            if part.isdigit():
+                current = current[int(part)]
+            else:
+                # Handle both object attributes and dictionary keys
+                if isinstance(current, dict):
+                    current = current[part]
+                else:
+                    current = getattr(current, part)
+        
+        final_part = parts[-1]
+        if final_part.isdigit():
+            current[int(final_part)] = value
         else:
             # Handle both object attributes and dictionary keys
             if isinstance(current, dict):
-                current = current[part]
+                current[final_part] = value
             else:
-                current = getattr(current, part)
+                setattr(current, final_part, value)
+
+
+def _rebuild_path_from_parts(parts: List[str]) -> str:
+    """
+    Rebuild a path string from parts list.
     
-    final_part = parts[-1]
-    if final_part.isdigit():
-        current[int(final_part)] = value
-    else:
-        # Handle both object attributes and dictionary keys
-        if isinstance(current, dict):
-            current[final_part] = value
+    Converts ['rate_resets', '0', 'new_rate_default'] back to 'rate_resets[0].new_rate_default'
+    
+    Args:
+        parts: List of path parts
+        
+    Returns:
+        Reconstructed path string
+    """
+    if not parts:
+        return ""
+    
+    path = parts[0]
+    for part in parts[1:]:
+        if part.isdigit() or part == '*':
+            path += f"[{part}]"
         else:
-            setattr(current, final_part, value)
+            path += f".{part}"
+    
+    return path
 
 
 def _apply_nested_params(base_scenario: BuyingScenario, params: Dict[str, Any]) -> BuyingScenario:

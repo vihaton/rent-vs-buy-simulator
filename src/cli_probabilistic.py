@@ -201,12 +201,18 @@ Variables file format (YAML):
         print(f"{'='*80}")
         
         summary = results_df.groupby('mortgage_scenario_label')['wealth_end'].agg([
-            'count', 'mean', 'std', 'min', 
+            'count', 'mean', 'std', 'min',
             ('p10', lambda x: x.quantile(0.10)),
             ('p50', lambda x: x.quantile(0.50)),
             ('p90', lambda x: x.quantile(0.90)),
             'max'
         ])
+        
+        # Round numeric columns to whole euros for display
+        numeric_cols = ['mean', 'std', 'min', 'p10', 'p50', 'p90', 'max']
+        for col in numeric_cols:
+            if col in summary.columns:
+                summary[col] = summary[col].round(0)
         
         print("\nWealth at End (by scenario):")
         print(summary.to_string())
