@@ -1,0 +1,116 @@
+# Calibration Configuration for Transition Matrix Estimation
+#
+# This file controls the calibration process for Markov regime transition matrices.
+
+# Data source
+data:
+  # Path to BIS property price data (relative to project root)
+  bis_data_path: "data/bis_dp_custom_table_export_20260314-174549.csv"
+  
+  # Countries to include in calibration
+  # Including developed and emerging markets for broader coverage
+  countries:
+    # Western Europe
+    - Netherlands
+    - Germany
+    - Belgium
+    - France
+    - Austria
+    - Denmark
+    - Sweden
+    - Finland
+    - Norway
+    - Switzerland
+    - Ireland
+    - Spain
+    - Portugal
+    - Italy
+    - Greece
+    # Central/Eastern Europe
+    # - Poland
+    # - Czechia
+    # - Hungary
+    # - Slovakia
+    # - Slovenia
+    # - Croatia
+    # - Estonia
+    # - Latvia
+    # - Lithuania
+    # - Bulgaria
+    # - Romania
+    # Anglo-Saxon
+    - United Kingdom
+    - United States
+    - Canada
+    - Australia
+    - New Zealand
+    # Asia-Pacific
+    # - Japan
+    # - Korea
+    # - Singapore
+    # - Hong Kong SAR
+    # - China
+    # - India
+    # - Indonesia
+    # - Malaysia
+    # - Thailand
+    # - Philippines
+    # # Latin America
+    # - Brazil
+    # - Chile
+    # - Mexico
+    # - Colombia
+    # - Peru
+    # # Other
+    # - Israel
+    # - Türkiye
+    # - South Africa
+    # - Russia
+    # - Iceland
+    # - Malta
+    # - Cyprus
+
+# Prior matrix
+prior:
+  # Path to prior transition matrix CSV (relative to project root)
+  prior_matrix_path: "scenarios/markov/prior_matrix.csv"
+  
+  # Weight on prior in Bayesian smoothing (0 = all data, 1 = all prior)
+  # Higher values rely more on expert judgment, lower values on empirical data
+  alpha: 0.3
+
+# Regime classification thresholds
+regimes:
+  # Thresholds based on annualized property price growth rates
+  recovery_threshold: 0.05      # > 5% annual growth
+  normal_threshold: 0.02        # 2% to 5% annual growth
+  stagnation_threshold: -0.02   # -2% to 2% annual growth
+  # Below stagnation_threshold is CRISIS (< -2% annual growth)
+  
+  # Regime names (in order: NORMAL_GROWTH, STAGNATION, CRISIS, RECOVERY)
+  names:
+    - NORMAL_GROWTH
+    - STAGNATION
+    - CRISIS
+    - RECOVERY
+
+# Output configuration
+output:
+  # Directory for output files (relative to project root)
+  output_dir: "scenarios/markov"
+  
+  # Output file names
+  calibrated_file: "calibrated_regimes.yaml"
+  empirical_file: "empirical_matrix.yaml"
+  
+  # Time step for transitions (in years)
+  # BIS data is quarterly, so each transition represents 0.25 years
+  time_step_years: 0.25
+
+# Validation settings
+validation:
+  # Check ergodicity by computing matrix power
+  ergodicity_power: 100
+  
+  # Tolerance for row sum validation
+  row_sum_tolerance: 1e-10

@@ -223,3 +223,7 @@ outputs/
 .DS_Store
 
 plans
+!scenarios/markov/calibrated_regimes.yaml
+!scenarios/markov/calibration_config.yaml
+!scenarios/markov/empirical_matrix.yaml
+!scenarios/markov/regime_distributions.yaml

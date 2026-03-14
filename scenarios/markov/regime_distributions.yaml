@@ -1,0 +1,91 @@
+# Regime-Specific Parameter Distributions
+#
+# These distributions define the economic parameters (property growth, mortgage rates)
+# for each macro-economic regime in the Markov chain simulation.
+#
+# Source: plans/reasoning_for_priors.md
+#
+# These distributions are INDEPENDENT of the transition matrix and can be used
+# with either the prior-based or calibrated transition matrices.
+
+distributions:
+  NORMAL_GROWTH:
+    label: "Normal Growth"
+    description: "Healthy, sustainable property market with typical appreciation"
+    property_growth:
+      mean: 0.035  # 3.5% annual nominal growth
+      std: 0.07    # 7% annual volatility
+      interpretation: "~3-4% nominal price growth typical for mature global cities"
+    mortgage_rate:
+      mean: 0.039  # 3.9% mortgage rate
+      std: 0.009   # 0.9% volatility
+      interpretation: "Normal ECB policy, stable inflation near 2%"
+  
+  STAGNATION:
+    label: "Stagnation"
+    description: "Flat property market with minimal price movement"
+    property_growth:
+      mean: 0.000  # 0% annual growth (flat)
+      std: 0.06    # 6% annual volatility
+      interpretation: "Sideways decade scenarios (London, Tokyo examples)"
+    mortgage_rate:
+      mean: 0.030  # 3.0% mortgage rate
+      std: 0.009   # 0.9% volatility
+      interpretation: "Low-rate environment, accommodative monetary policy"
+  
+  CRISIS:
+    label: "Crisis"
+    description: "Property market decline with elevated financing costs"
+    property_growth:
+      mean: -0.050  # -5% annual growth (declining)
+      std: 0.11     # 11% annual volatility (high uncertainty)
+      interpretation: "Sustained deleveraging, post-bubble correction"
+    mortgage_rate:
+      mean: 0.058  # 5.8% mortgage rate
+      std: 0.012   # 1.2% volatility
+      interpretation: "Tight monetary policy, elevated risk premiums"
+  
+  RECOVERY:
+    label: "Recovery"
+    description: "Strong property market rebound with low financing costs"
+    property_growth:
+      mean: 0.060  # 6% annual growth (strong appreciation)
+      std: 0.09    # 9% annual volatility
+      interpretation: "V-shaped bounce, post-crisis recovery"
+    mortgage_rate:
+      mean: 0.029  # 2.9% mortgage rate
+      std: 0.008   # 0.8% volatility
+      interpretation: "Accommodative policy supporting recovery"
+
+# Distribution type (all use normal distributions)
+distribution_type: "normal"
+
+# Truncation bounds (optional, to prevent unrealistic values)
+bounds:
+  property_growth:
+    min: -0.30  # -30% annual decline (extreme crisis)
+    max: 0.20   # +20% annual growth (extreme boom)
+  mortgage_rate:
+    min: 0.005  # 0.5% (lower bound)
+    max: 0.09   # 9% (upper bound)
+
+# Notes on calibration
+calibration_notes: |
+  These distributions are based on expert judgment and historical analysis
+  of property markets in global cities (Amsterdam, London, etc.) and ECB
+  monetary policy regimes.
+  
+  Key assumptions:
+  1. Property growth variance scales with regime uncertainty
+     - Crisis has highest volatility (11%)
+     - Stagnation has lowest volatility (6%)
+  
+  2. Mortgage rates are correlated with property regimes
+     - Crisis: High rates (tight policy)
+     - Recovery: Low rates (accommodative policy)
+     - But correlation is not perfect (rates can be low in stagnation too)
+  
+  3. Distributions are independent draws within each year
+     - Future versions may add correlation structure
+     - Future versions may add momentum/autocorrelation
+  

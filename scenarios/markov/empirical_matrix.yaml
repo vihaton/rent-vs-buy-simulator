@@ -1,0 +1,8 @@
+# Empirical Transition Matrix (No Prior Smoothing)
+# For comparison purposes only
+
+transition_matrix:
+  - [0.2727, 0.2727, 0.2727, 0.1818]  # From NORMAL_GROWTH
+  - [0.2273, 0.2273, 0.3182, 0.2273]  # From STAGNATION
+  - [0.1091, 0.2545, 0.4727, 0.1636]  # From CRISIS
+  - [0.1702, 0.2128, 0.1489, 0.4681]  # From RECOVERY
