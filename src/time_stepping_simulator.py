@@ -392,12 +392,30 @@ def simulate_scenario_with_fixed_paths(
         # Regime path as string
         regime_path_str = ','.join(str(int(r)) for r in regime_paths[sample_id])
         
+        # Calculate total cash outflow (absolute value of negative cumulative cashflow)
+        # This represents all money spent (down payment, mortgage payments, utilities, etc.)
+        # minus any rental income received
+        total_cash_outflow = abs(min(0, final_state.cumulative_cashflow))
+        
+        # Calculate ROI: wealth gained per euro spent
+        # ROI = final_wealth / total_cash_outflow
+        # Avoid division by zero
+        roi = final_state.wealth / total_cash_outflow if total_cash_outflow > 0 else 0.0
+        
+        # Calculate cash efficiency: equity gained per euro spent
+        # This shows how much of your spending turned into property equity
+        cash_efficiency = final_state.equity / total_cash_outflow if total_cash_outflow > 0 else 0.0
+        
         summary = {
             'sample_id': sample_id,
             'scenario_label': scenario_label,
             'final_wealth': final_state.wealth,
             'final_property_value': final_state.property_value,
             'final_equity': final_state.equity,
+            'final_cumulative_cashflow': final_state.cumulative_cashflow,
+            'total_cash_outflow': total_cash_outflow,
+            'roi': roi,
+            'cash_efficiency': cash_efficiency,
             'total_interest_paid': sum(s.annual_interest_paid for s in states),
             'total_principal_paid': sum(s.annual_principal_paid for s in states),
             'years_in_normal': int(regime_counts[0]),

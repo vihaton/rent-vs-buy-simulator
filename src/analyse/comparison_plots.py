@@ -556,6 +556,218 @@ def plot_monthly_payment_over_time(
     return ax
 
 
+def plot_roi_and_cash_efficiency(
+    summary_df: pd.DataFrame,
+    ax: Optional[plt.Axes] = None
+) -> plt.Axes:
+    """
+    Plot ROI and Cash Efficiency distributions as box plots.
+    
+    Args:
+        summary_df: Summary DataFrame with roi and cash_efficiency columns
+        ax: Matplotlib axes (creates new if None)
+    
+    Returns:
+        Matplotlib axes
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(12, 6))
+    
+    scenarios = sorted(summary_df['scenario_label'].unique())
+    
+    # Prepare data for grouped box plots
+    roi_data = []
+    ce_data = []
+    labels = []
+    positions_roi = []
+    positions_ce = []
+    
+    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
+    
+    pos = 0
+    for i, scenario in enumerate(scenarios):
+        scenario_data = summary_df[summary_df['scenario_label'] == scenario]
+        
+        roi_data.append(scenario_data['roi'])
+        ce_data.append(scenario_data['cash_efficiency'])
+        labels.append(scenario)
+        
+        positions_roi.append(pos)
+        positions_ce.append(pos + 0.4)
+        pos += 1
+    
+    # Plot ROI boxes
+    bp_roi = ax.boxplot(roi_data, positions=positions_roi, widths=0.35,
+                         patch_artist=True, showfliers=False)
+    for patch, color in zip(bp_roi['boxes'], colors):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.7)
+    
+    # Plot Cash Efficiency boxes
+    bp_ce = ax.boxplot(ce_data, positions=positions_ce, widths=0.35,
+                       patch_artist=True, showfliers=False)
+    for patch, color in zip(bp_ce['boxes'], colors):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.4)
+        patch.set_hatch('//')
+    
+    # Set labels and formatting
+    ax.set_xticks([p + 0.2 for p in positions_roi])
+    ax.set_xticklabels(labels, rotation=45, ha='right')
+    ax.set_ylabel('Ratio')
+    ax.set_title('ROI and Cash Efficiency Comparison')
+    ax.grid(True, alpha=0.3, axis='y')
+    ax.axhline(y=0, color='black', linestyle='--', linewidth=0.5)
+    
+    # Add legend
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='gray', alpha=0.7, label='ROI (Wealth / Cash Outflow)'),
+        Patch(facecolor='gray', alpha=0.4, hatch='//', label='Cash Efficiency (Equity / Cash Outflow)')
+    ]
+    ax.legend(handles=legend_elements, loc='best')
+    
+    return ax
+
+
+def plot_roi_vs_cash_efficiency_2d(
+    summary_df: pd.DataFrame,
+    ax: Optional[plt.Axes] = None
+) -> plt.Axes:
+    """
+    Plot 2D scatter of ROI vs Cash Efficiency with P10-P90 ranges.
+    
+    Shows mean as a star marker with rectangles showing P10-P90 ranges for each metric.
+    
+    Args:
+        summary_df: Summary DataFrame with roi and cash_efficiency columns
+        ax: Matplotlib axes (creates new if None)
+    
+    Returns:
+        Matplotlib axes
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 8))
+    
+    scenarios = sorted(summary_df['scenario_label'].unique())
+    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
+    
+    for i, scenario in enumerate(scenarios):
+        scenario_data = summary_df[summary_df['scenario_label'] == scenario]
+        
+        # Calculate statistics
+        roi_mean = scenario_data['roi'].mean()
+        roi_p10 = scenario_data['roi'].quantile(0.1)
+        roi_p90 = scenario_data['roi'].quantile(0.9)
+        
+        ce_mean = scenario_data['cash_efficiency'].mean()
+        ce_p10 = scenario_data['cash_efficiency'].quantile(0.1)
+        ce_p90 = scenario_data['cash_efficiency'].quantile(0.9)
+        
+        # Draw rectangle showing P10-P90 range
+        from matplotlib.patches import Rectangle
+        rect_width = ce_p90 - ce_p10
+        rect_height = roi_p90 - roi_p10
+        rect = Rectangle(
+            (ce_p10, roi_p10),
+            rect_width,
+            rect_height,
+            linewidth=2,
+            edgecolor=colors[i],
+            facecolor=colors[i],
+            alpha=0.2,
+            label=None
+        )
+        ax.add_patch(rect)
+        
+        # Plot mean as star
+        ax.scatter(
+            ce_mean,
+            roi_mean,
+            marker='*',
+            s=400,
+            color=colors[i],
+            edgecolors='black',
+            linewidths=1.5,
+            zorder=10,
+            label=scenario
+        )
+        
+        # Add text label near the mean
+        ax.annotate(
+            scenario,
+            (ce_mean, roi_mean),
+            xytext=(10, 10),
+            textcoords='offset points',
+            fontsize=9,
+            bbox=dict(boxstyle='round,pad=0.3', facecolor=colors[i], alpha=0.3)
+        )
+    
+    ax.set_xlabel('Cash Efficiency (Equity / Cash Outflow)')
+    ax.set_ylabel('ROI (Wealth / Cash Outflow)')
+    ax.set_title('ROI vs Cash Efficiency (★ = mean, shaded = P10-P90 range)')
+    ax.legend(loc='best')
+    ax.grid(True, alpha=0.3)
+    ax.axhline(y=0, color='black', linestyle='--', linewidth=0.5, alpha=0.5)
+    ax.axvline(x=0, color='black', linestyle='--', linewidth=0.5, alpha=0.5)
+    
+    return ax
+
+
+def plot_wealth_vs_cash_outflow(
+    summary_df: pd.DataFrame,
+    ax: Optional[plt.Axes] = None
+) -> plt.Axes:
+    """
+    Plot final wealth vs total cash outflow as scatter plot.
+    
+    This shows the relationship between how much you spent and what wealth you achieved.
+    
+    Args:
+        summary_df: Summary DataFrame
+        ax: Matplotlib axes (creates new if None)
+    
+    Returns:
+        Matplotlib axes
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 6))
+    
+    scenarios = sorted(summary_df['scenario_label'].unique())
+    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
+    
+    for i, scenario in enumerate(scenarios):
+        scenario_data = summary_df[summary_df['scenario_label'] == scenario]
+        
+        ax.scatter(
+            scenario_data['total_cash_outflow'],
+            scenario_data['final_wealth'],
+            alpha=0.5,
+            s=30,
+            color=colors[i],
+            label=scenario
+        )
+        
+        # Add mean marker
+        mean_outflow = scenario_data['total_cash_outflow'].mean()
+        mean_wealth = scenario_data['final_wealth'].mean()
+        ax.scatter(mean_outflow, mean_wealth, marker='*', s=300,
+                  color=colors[i], edgecolors='black', linewidths=1.5, zorder=10)
+    
+    ax.set_xlabel('Total Cash Outflow (€)')
+    ax.set_ylabel('Final Wealth (€)')
+    ax.set_title('Final Wealth vs Total Cash Spent')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.axhline(y=0, color='black', linestyle='--', linewidth=0.5)
+    
+    # Add diagonal line showing ROI = 0 (wealth = -outflow)
+    xlim = ax.get_xlim()
+    ax.plot(xlim, [-xlim[0], -xlim[1]], 'r--', alpha=0.3, linewidth=1, label='ROI = 0')
+    
+    return ax
+
+
 def plot_mortgage_performance_over_time(
     trajectories_df: pd.DataFrame,
     ax: Optional[plt.Axes] = None
@@ -689,7 +901,31 @@ def generate_comparison_plots(
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 11: Mortgage Performance Over Time
+        # Plot 11: ROI and Cash Efficiency (Box plots)
+        if 'roi' in summary_df.columns and 'cash_efficiency' in summary_df.columns:
+            fig, ax = plt.subplots(figsize=(12, 6))
+            plot_roi_and_cash_efficiency(summary_df, ax=ax)
+            plt.tight_layout()
+            pdf.savefig(fig)
+            plt.close()
+        
+        # Plot 12: ROI vs Cash Efficiency 2D Scatter
+        if 'roi' in summary_df.columns and 'cash_efficiency' in summary_df.columns:
+            fig, ax = plt.subplots(figsize=(10, 8))
+            plot_roi_vs_cash_efficiency_2d(summary_df, ax=ax)
+            plt.tight_layout()
+            pdf.savefig(fig)
+            plt.close()
+        
+        # Plot 13: Wealth vs Cash Outflow
+        if 'total_cash_outflow' in summary_df.columns:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            plot_wealth_vs_cash_outflow(summary_df, ax=ax)
+            plt.tight_layout()
+            pdf.savefig(fig)
+            plt.close()
+        
+        # Plot 14: Mortgage Performance Over Time
         if 'mortgage_balance' in trajectories_df.columns:
             fig, ax = plt.subplots(figsize=(12, 6))
             plot_mortgage_performance_over_time(trajectories_df, ax=ax)
