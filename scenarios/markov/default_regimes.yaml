@@ -1,0 +1,52 @@
+# Default Markov Regime Configuration (Prior-Based)
+# Recommended for realistic time-stepping simulations
+#
+# Source: plans/reasoning_for_priors.md (expert judgment)
+# Analysis: plans/calibrated_matrix_analysis.md
+#
+# This configuration uses the PRIOR matrix (expert judgment) which provides
+# realistic regime persistence (2-5 year durations). The calibrated matrix
+# from BIS data shows unrealistic behavior due to limited 2023-2025 data.
+
+regimes:
+  - NORMAL_GROWTH
+  - STAGNATION
+  - CRISIS
+  - RECOVERY
+
+# Prior transition matrix (expert judgment)
+# Provides realistic regime persistence (2-5 year durations)
+# Each row sums to 1.0 and represents transition probabilities
+transition_matrix:
+  # From/To: NORMAL_GROWTH, STAGNATION, CRISIS, RECOVERY
+  - [0.75, 0.18, 0.03, 0.04]  # From NORMAL_GROWTH
+  - [0.35, 0.45, 0.12, 0.08]  # From STAGNATION
+  - [0.10, 0.20, 0.50, 0.20]  # From CRISIS
+  - [0.55, 0.20, 0.05, 0.20]  # From RECOVERY
+
+# Initial state distribution
+# Probability of starting in each regime
+initial_state_probs: [0.50, 0.30, 0.10, 0.10]
+
+# Time step configuration
+time_step_years: 1  # Annual transitions
+
+# Expected regime durations (years)
+# Calculated as: 1 / (1 - self_transition_prob)
+expected_durations:
+  NORMAL_GROWTH: 4.0   # 1 / (1 - 0.75) = 4.0 years
+  STAGNATION: 1.8      # 1 / (1 - 0.45) = 1.8 years
+  CRISIS: 2.0          # 1 / (1 - 0.50) = 2.0 years
+  RECOVERY: 1.8        # 1 / (1 - 0.20) = 1.8 years (note: low persistence)
+
+# Interpretation:
+# - NORMAL_GROWTH: Most persistent state, lasts ~4 years on average
+# - STAGNATION: Transitional state, often leads to NORMAL or CRISIS
+# - CRISIS: Moderately persistent, lasts ~2 years, then recovers
+# - RECOVERY: Short-lived, quickly transitions to NORMAL or STAGNATION
+#
+# Key transitions:
+# - NORMAL → STAGNATION (18%): Economic slowdown
+# - STAGNATION → CRISIS (12%): Deterioration
+# - CRISIS → RECOVERY (20%): Bounce back
+# - RECOVERY → NORMAL (55%): Return to growth

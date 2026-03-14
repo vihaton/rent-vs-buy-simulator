@@ -227,3 +227,4 @@ plans
 !scenarios/markov/calibration_config.yaml
 !scenarios/markov/empirical_matrix.yaml
 !scenarios/markov/regime_distributions.yaml
+!scenarios/markov/default_regimes.yaml

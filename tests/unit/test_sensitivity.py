@@ -8,6 +8,7 @@ import pandas as pd
 from pathlib import Path
 import tempfile
 import shutil
+import json
 
 from src.sensitivity import (
     _generate_values_for_strategy,
@@ -542,7 +543,6 @@ class TestExportResults:
         assert Path(metadata_path).exists()
         
         # Verify metadata content
-        import json
         with open(metadata_path, 'r') as f:
             loaded_metadata = json.load(f)
         assert loaded_metadata['test_key'] == 'test_value'

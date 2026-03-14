@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 from enum import Enum
 import copy
+import warnings
 
 from src.utils import monthly_payment_annuity
 
@@ -309,9 +310,7 @@ def resolve_loan_percentages(loans: List[MortgageLoan], total_mortgage: float, a
     
     Raises:
         ValueError: If percentage values are invalid
-    """
-    import warnings
-    
+    """    
     # Convert dictionaries to MortgageLoan objects if needed (for YAML loading)
     converted_loans = []
     for loan in loans:

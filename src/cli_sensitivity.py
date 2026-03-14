@@ -10,6 +10,7 @@ import sys
 import yaml
 from pathlib import Path
 from typing import Dict, Any
+import traceback
 
 from src.sensitivity import (
     generate_parameter_space,
@@ -287,7 +288,6 @@ def main():
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
         if args.verbose:
-            import traceback
             traceback.print_exc()
         return 1
 
