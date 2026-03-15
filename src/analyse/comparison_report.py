@@ -352,8 +352,16 @@ def generate_comparison_report(
         scenario_data = summary_df[summary_df['scenario_label'] == scenario]
         p10_wealth = scenario_data['final_wealth'].quantile(0.1)
         
-        traj_scenario = trajectories_df[trajectories_df['scenario_label'] == scenario]
-        p10_monthly = traj_scenario['monthly_payment'].quantile(0.1)
+        # Find sample_ids in the P10 wealth percentile
+        p10_threshold = scenario_data['final_wealth'].quantile(0.1)
+        p10_samples = scenario_data[scenario_data['final_wealth'] <= p10_threshold]['sample_id']
+        
+        # Calculate average monthly payment for those specific samples
+        traj_scenario = trajectories_df[
+            (trajectories_df['scenario_label'] == scenario) &
+            (trajectories_df['sample_id'].isin(p10_samples))
+        ]
+        p10_monthly = traj_scenario['monthly_payment'].mean()
         
         lines.append(f"| {scenario} | {format_currency(p10_wealth)} | {format_currency(p10_monthly)} |")
     
@@ -374,8 +382,16 @@ def generate_comparison_report(
         scenario_data = summary_df[summary_df['scenario_label'] == scenario]
         p90_wealth = scenario_data['final_wealth'].quantile(0.9)
         
-        traj_scenario = trajectories_df[trajectories_df['scenario_label'] == scenario]
-        p90_monthly = traj_scenario['monthly_payment'].quantile(0.9)
+        # Find sample_ids in the P90 wealth percentile
+        p90_threshold = scenario_data['final_wealth'].quantile(0.9)
+        p90_samples = scenario_data[scenario_data['final_wealth'] >= p90_threshold]['sample_id']
+        
+        # Calculate average monthly payment for those specific samples
+        traj_scenario = trajectories_df[
+            (trajectories_df['scenario_label'] == scenario) &
+            (trajectories_df['sample_id'].isin(p90_samples))
+        ]
+        p90_monthly = traj_scenario['monthly_payment'].mean()
         
         lines.append(f"| {scenario} | {format_currency(p90_wealth)} | {format_currency(p90_monthly)} |")
     
