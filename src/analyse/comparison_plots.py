@@ -842,9 +842,9 @@ def plot_wealth_vs_cash_outflow(
     ax.grid(True, alpha=0.3)
     ax.axhline(y=0, color='black', linestyle='--', linewidth=0.5, alpha=0.5)
     
-    # Add diagonal line showing ROI = 0 (wealth = -outflow)
+    # Add diagonal line showing ROI = -1 (wealth = -outflow)
     xlim = ax.get_xlim()
-    ax.plot(xlim, [-xlim[0], -xlim[1]], 'r--', alpha=0.3, linewidth=1, label='ROI = 0')
+    ax.plot(xlim, [-xlim[0], -xlim[1]], 'r--', alpha=0.3, linewidth=1, label='ROI = -1')
     
     # Add legend after all plot elements are added
     ax.legend(loc='best')
