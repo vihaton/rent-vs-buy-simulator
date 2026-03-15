@@ -11,13 +11,14 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import yaml
 
-from src.estate import BuyingScenario
+from src.estate import BuyingScenario, RentingScenario
 from src.markov_regime import (
     MarkovChainConfig,
     generate_shared_regime_paths,
     generate_shared_parameter_draws
 )
 from src.time_stepping_simulator import simulate_scenario_with_fixed_paths
+from src.rental_simulator import simulate_rental_baseline
 from src.tax import NLHomeTax2026
 from src.mortgage import MortgageLoan, AmortizationType, RateReset
 
@@ -144,11 +145,39 @@ def load_scenario(scenario_path: str) -> Tuple[BuyingScenario, str]:
     return scenario, label
 
 
+def load_rental_scenario(rental_path: str) -> Tuple[RentingScenario, str]:
+    """
+    Load a rental scenario from YAML file.
+    
+    Args:
+        rental_path: Path to rental scenario YAML file
+    
+    Returns:
+        Tuple of (RentingScenario, label)
+    """
+    with open(rental_path, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    scenario = RentingScenario(
+        rent_monthly=config['rent_monthly'],
+        utilities_monthly=config['utilities_monthly'],
+        living_months=config['living_months'],
+        annual_rent_increase=config.get('annual_rent_increase', 0.0),
+        description=config.get('description'),
+        link=config.get('link')
+    )
+    
+    label = config.get('name', Path(rental_path).stem)
+    
+    return scenario, label
+
+
 def run_multi_scenario_comparison(
     scenario_configs: List[str],
     markov_config: MarkovChainConfig,
     n_samples: int,
     seed: int,
+    rental_baseline_path: Optional[str] = None,
     verbose: bool = False
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -163,6 +192,7 @@ def run_multi_scenario_comparison(
         markov_config: Markov chain configuration (transition matrix + distributions)
         n_samples: Number of Monte Carlo samples
         seed: Random seed
+        rental_baseline_path: Optional path to rental baseline scenario YAML
         verbose: Print progress
     
     Returns:
@@ -173,9 +203,13 @@ def run_multi_scenario_comparison(
     if verbose:
         print(f"Generating {n_samples} shared regime paths...")
     
-    # Determine horizon from first scenario
-    first_scenario, _ = load_scenario(scenario_configs[0])
-    horizon_years = first_scenario.living_months // 12
+    # Determine maximum horizon from all buying scenarios
+    max_living_months = 0
+    for scenario_path in scenario_configs:
+        scenario, _ = load_scenario(scenario_path)
+        max_living_months = max(max_living_months, scenario.living_months)
+    
+    horizon_years = max_living_months // 12
     
     # 1. Generate shared regime paths
     regime_paths = generate_shared_regime_paths(
@@ -220,7 +254,41 @@ def run_multi_scenario_comparison(
         all_trajectories.append(traj_df)
         all_summaries.append(summ_df)
     
-    # 4. Combine results
+    # 4. Add rental baseline if provided
+    if rental_baseline_path is not None:
+        if verbose:
+            print(f"Simulating rental baseline: {Path(rental_baseline_path).name}")
+        
+        rental_scenario, rental_label = load_rental_scenario(rental_baseline_path)
+        
+        # Cap rental living months to match maximum from buying scenarios
+        if rental_scenario.living_months > max_living_months:
+            if verbose:
+                print(f"  Capping rental living_months from {rental_scenario.living_months} to {max_living_months}")
+            rental_scenario = RentingScenario(
+                rent_monthly=rental_scenario.rent_monthly,
+                utilities_monthly=rental_scenario.utilities_monthly,
+                living_months=max_living_months,
+                annual_rent_increase=rental_scenario.annual_rent_increase,
+                description=rental_scenario.description,
+                link=rental_scenario.link
+            )
+        
+        # Simulate rental baseline (deterministic, replicated across samples)
+        rental_traj_df, rental_summ_df = simulate_rental_baseline(
+            rental_scenario,
+            n_samples,
+            scenario_label=rental_label
+        )
+        
+        # Add scenario file path for reference
+        rental_traj_df['scenario_file'] = rental_baseline_path
+        rental_summ_df['scenario_file'] = rental_baseline_path
+        
+        all_trajectories.append(rental_traj_df)
+        all_summaries.append(rental_summ_df)
+    
+    # 5. Combine results
     if verbose:
         print("Combining results...")
     

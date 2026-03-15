@@ -19,7 +19,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from matplotlib.patches import Rectangle
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.patches import Patch
 
 
 def plot_wealth_distributions(
@@ -42,11 +44,36 @@ def plot_wealth_distributions(
         fig, ax = plt.subplots(figsize=(10, 6))
     
     scenarios = sorted(summary_df['scenario_label'].unique())
-    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
     
-    for i, scenario in enumerate(scenarios):
+    # Separate rental baseline from buying scenarios
+    rental_baseline = None
+    buying_scenarios = []
+    for scenario in scenarios:
+        if 'rental' in scenario.lower() and 'baseline' in scenario.lower():
+            rental_baseline = scenario
+        else:
+            buying_scenarios.append(scenario)
+    
+    colors = [plt.cm.tab10(i) for i in range(len(buying_scenarios))]
+    
+    # Plot buying scenarios
+    for i, scenario in enumerate(buying_scenarios):
         data = summary_df[summary_df['scenario_label'] == scenario][metric]
-        ax.hist(data, bins=50, alpha=0.7, label=scenario, color=colors[i], density=True)
+        ax.hist(data, bins=50, alpha=0.5, label=scenario, color=colors[i], density=True)
+    
+    # Plot rental baseline as vertical line (all samples identical)
+    if rental_baseline:
+        data = summary_df[summary_df['scenario_label'] == rental_baseline][metric]
+        rental_value = data.iloc[0]  # All values are identical
+        ax.axvline(
+            rental_value,
+            color='#404040',
+            linestyle='--',
+            linewidth=2.5,
+            label=rental_baseline,
+            alpha=1.0,
+            zorder=10
+        )
     
     ax.set_xlabel(f'{metric.replace("_", " ").title()} (€)')
     ax.set_ylabel('Density')
@@ -77,7 +104,18 @@ def plot_wealth_trajectories(
         fig, ax = plt.subplots(figsize=(12, 6))
     
     scenarios = sorted(trajectories_df['scenario_label'].unique())
-    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
+    
+    # Separate rental baseline from other scenarios
+    rental_baseline_label = None
+    buying_scenarios = []
+    for scenario in scenarios:
+        if 'rental' in scenario.lower() and 'baseline' in scenario.lower():
+            rental_baseline_label = scenario
+        else:
+            buying_scenarios.append(scenario)
+    
+    # Assign colors (rental baseline gets dark gray)
+    colors = [plt.cm.tab10(i) for i in range(len(buying_scenarios))]
     
     # Sample random paths
     sample_ids = np.random.choice(
@@ -86,7 +124,8 @@ def plot_wealth_trajectories(
         replace=False
     )
     
-    for i, scenario in enumerate(scenarios):
+    # Plot buying scenarios with transparent sample paths
+    for i, scenario in enumerate(buying_scenarios):
         scenario_data = trajectories_df[
             (trajectories_df['scenario_label'] == scenario) &
             (trajectories_df['sample_id'].isin(sample_ids))
@@ -102,11 +141,32 @@ def plot_wealth_trajectories(
                 linewidth=0.5
             )
     
+    # Plot rental baseline as a single bold dashed line
+    if rental_baseline_label is not None:
+        rental_data = trajectories_df[
+            (trajectories_df['scenario_label'] == rental_baseline_label) &
+            (trajectories_df['sample_id'] == 0)  # All samples are identical
+        ]
+        ax.plot(
+            rental_data['year'],
+            rental_data['wealth'],
+            color='#404040',  # Dark gray
+            linestyle='--',
+            linewidth=2.5,
+            alpha=1.0,
+            zorder=10,
+            label=rental_baseline_label
+        )
+    
     # Add legend with scenario colors
     legend_patches = [
         mpatches.Patch(color=colors[i], label=scenario)
-        for i, scenario in enumerate(scenarios)
+        for i, scenario in enumerate(buying_scenarios)
     ]
+    if rental_baseline_label is not None:
+        legend_patches.append(
+            mpatches.Patch(color='#404040', label=rental_baseline_label)
+        )
     ax.legend(handles=legend_patches)
     
     ax.set_xlabel('Year')
@@ -215,9 +275,20 @@ def plot_exit_timing_analysis(
         years = [5, 10, 15, 20, 25, 30]
     
     scenarios = sorted(summary_df['scenario_label'].unique())
-    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
     
-    for i, scenario in enumerate(scenarios):
+    # Separate rental baseline from buying scenarios
+    rental_baseline = None
+    buying_scenarios = []
+    for scenario in scenarios:
+        if 'rental' in scenario.lower() and 'baseline' in scenario.lower():
+            rental_baseline = scenario
+        else:
+            buying_scenarios.append(scenario)
+    
+    colors = [plt.cm.tab10(i) for i in range(len(buying_scenarios))]
+    
+    # Plot buying scenarios
+    for i, scenario in enumerate(buying_scenarios):
         scenario_data = summary_df[summary_df['scenario_label'] == scenario]
         
         mean_wealth = []
@@ -242,6 +313,33 @@ def plot_exit_timing_analysis(
                 p90_wealth,
                 alpha=0.2,
                 color=colors[i]
+            )
+    
+    # Plot rental baseline (if present)
+    if rental_baseline:
+        scenario_data = summary_df[summary_df['scenario_label'] == rental_baseline]
+        
+        mean_wealth = []
+        available_years = []
+        
+        for year in years:
+            col_name = f'wealth_year_{year}'
+            if col_name in scenario_data.columns:
+                wealth = scenario_data[col_name]
+                mean_wealth.append(wealth.mean())
+                available_years.append(year)
+        
+        if available_years:
+            ax.plot(
+                available_years,
+                mean_wealth,
+                marker='s',
+                label=rental_baseline,
+                color='#404040',
+                linestyle='--',
+                linewidth=2.5,
+                alpha=1.0,
+                zorder=10
             )
     
     ax.set_xlabel('Year')
@@ -315,11 +413,36 @@ def plot_drawdown_analysis(
         fig, ax = plt.subplots(figsize=(10, 6))
     
     scenarios = sorted(summary_df['scenario_label'].unique())
-    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
     
-    for i, scenario in enumerate(scenarios):
+    # Separate rental baseline from buying scenarios
+    rental_baseline = None
+    buying_scenarios = []
+    for scenario in scenarios:
+        if 'rental' in scenario.lower() and 'baseline' in scenario.lower():
+            rental_baseline = scenario
+        else:
+            buying_scenarios.append(scenario)
+    
+    colors = [plt.cm.tab10(i) for i in range(len(buying_scenarios))]
+    
+    # Plot buying scenarios
+    for i, scenario in enumerate(buying_scenarios):
         data = summary_df[summary_df['scenario_label'] == scenario]['max_drawdown']
-        ax.hist(data, bins=50, alpha=0.7, label=scenario, color=colors[i], density=True)
+        ax.hist(data, bins=50, alpha=0.5, label=scenario, color=colors[i], density=True)
+    
+    # Plot rental baseline as vertical line (all samples identical)
+    if rental_baseline:
+        data = summary_df[summary_df['scenario_label'] == rental_baseline]['max_drawdown']
+        rental_value = data.iloc[0]  # All values are identical
+        ax.axvline(
+            rental_value,
+            color='#404040',
+            linestyle='--',
+            linewidth=2.5,
+            label=rental_baseline,
+            alpha=1.0,
+            zorder=10
+        )
     
     ax.set_xlabel('Maximum Drawdown (€)')
     ax.set_ylabel('Density')
@@ -353,7 +476,17 @@ def plot_wealth_trajectory_boxplots(
         years = [5, 10, 15, 20, 25, 30]
     
     scenarios = sorted(trajectories_df['scenario_label'].unique())
-    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
+    
+    # Separate rental baseline from buying scenarios
+    rental_baseline = None
+    buying_scenarios = []
+    for scenario in scenarios:
+        if 'rental' in scenario.lower() and 'baseline' in scenario.lower():
+            rental_baseline = scenario
+        else:
+            buying_scenarios.append(scenario)
+    
+    colors = [plt.cm.tab10(i) for i in range(len(buying_scenarios))]
     
     # Prepare data for box plot
     data_to_plot = []
@@ -361,13 +494,26 @@ def plot_wealth_trajectory_boxplots(
     positions = []
     colors_list = []
     
+    # Store rental baseline values for horizontal lines
+    rental_values = {}
+    if rental_baseline:
+        for year in years:
+            year_data = trajectories_df[
+                (trajectories_df['scenario_label'] == rental_baseline) &
+                (trajectories_df['year'] == year)
+            ]
+            if len(year_data) > 0:
+                rental_values[year] = year_data['wealth'].iloc[0]
+    
     pos = 0
+    year_positions = {}  # Track position range for each year
     for year in years:
         year_data = trajectories_df[trajectories_df['year'] == year]
         if len(year_data) == 0:
             continue
-            
-        for i, scenario in enumerate(scenarios):
+        
+        year_start_pos = pos
+        for i, scenario in enumerate(buying_scenarios):
             scenario_data = year_data[year_data['scenario_label'] == scenario]['wealth']
             
             if len(scenario_data) > 0:
@@ -376,6 +522,9 @@ def plot_wealth_trajectory_boxplots(
                 positions.append(pos)
                 colors_list.append(colors[i])
                 pos += 1
+        
+        year_end_pos = pos - 1
+        year_positions[year] = (year_start_pos, year_end_pos)
         pos += 0.5  # Gap between years
     
     bp = ax.boxplot(data_to_plot, positions=positions, widths=0.6, patch_artist=True)
@@ -385,10 +534,28 @@ def plot_wealth_trajectory_boxplots(
         patch.set_facecolor(color)
         patch.set_alpha(0.7)
     
+    # Add rental baseline as horizontal dashed lines
+    if rental_baseline and rental_values:
+        for year, (start_pos, end_pos) in year_positions.items():
+            if year in rental_values:
+                ax.hlines(
+                    rental_values[year],
+                    start_pos - 0.3,
+                    end_pos + 0.3,
+                    colors='#404040',
+                    linestyles='--',
+                    linewidth=2.5,
+                    alpha=1.0,
+                    zorder=10,
+                    label=rental_baseline if year == years[0] else None
+                )
+    
     ax.set_xticks(positions)
     ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
     ax.set_ylabel('Wealth (€)')
     ax.set_title('Wealth Distribution Over Time (Boxplots per 5 Years)')
+    if rental_baseline:
+        ax.legend(loc='best')
     ax.grid(True, alpha=0.3, axis='y')
     ax.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5)
     
@@ -400,7 +567,7 @@ def plot_monthly_payment_distributions(
     ax: Optional[plt.Axes] = None
 ) -> plt.Axes:
     """
-    Plot distribution of monthly payments for all scenarios.
+    Plot distribution of net monthly housing costs for all scenarios.
     
     Args:
         trajectories_df: Trajectory DataFrame
@@ -413,15 +580,40 @@ def plot_monthly_payment_distributions(
         fig, ax = plt.subplots(figsize=(10, 6))
     
     scenarios = sorted(trajectories_df['scenario_label'].unique())
-    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
     
-    for i, scenario in enumerate(scenarios):
-        data = trajectories_df[trajectories_df['scenario_label'] == scenario]['monthly_payment']
-        ax.hist(data, bins=50, alpha=0.7, label=scenario, color=colors[i], density=True)
+    # Separate rental baseline from buying scenarios
+    rental_baseline = None
+    buying_scenarios = []
+    for scenario in scenarios:
+        if 'rental' in scenario.lower() and 'baseline' in scenario.lower():
+            rental_baseline = scenario
+        else:
+            buying_scenarios.append(scenario)
     
-    ax.set_xlabel('Monthly Payment (€)')
+    colors = [plt.cm.tab10(i) for i in range(len(buying_scenarios))]
+    
+    # Plot buying scenarios
+    for i, scenario in enumerate(buying_scenarios):
+        data = trajectories_df[trajectories_df['scenario_label'] == scenario]['monthly_net_housing_cost']
+        ax.hist(data, bins=50, alpha=0.5, label=scenario, color=colors[i], density=True)
+    
+    # Plot rental baseline (if present) - show distribution over time
+    if rental_baseline:
+        data = trajectories_df[trajectories_df['scenario_label'] == rental_baseline]['monthly_net_housing_cost']
+        # Rental payments change over time due to rent increases, so plot the distribution
+        ax.hist(
+            data,
+            bins=50,
+            alpha=0.3,
+            label=rental_baseline,
+            color='#D3D3D3',  # Light gray
+            density=True,
+            zorder=1  # Place in background
+        )
+    
+    ax.set_xlabel('Net Monthly Housing Cost (€)')
     ax.set_ylabel('Density')
-    ax.set_title('Distribution of Monthly Payments')
+    ax.set_title('Distribution of Net Monthly Housing Costs')
     ax.legend()
     ax.grid(True, alpha=0.3)
     
@@ -434,13 +626,13 @@ def plot_2d_wealth_vs_payment_scatter(
     ax: Optional[plt.Axes] = None
 ) -> plt.Axes:
     """
-    Plot 2D scatter of final wealth vs average monthly payment with P10-P90 ranges.
+    Plot 2D scatter of final wealth vs average net monthly housing cost with P10-P90 ranges.
     
     Shows mean as a star marker with rectangles showing P10-P90 ranges for each metric.
     
     Args:
         summary_df: Summary DataFrame with final_wealth
-        trajectories_df: Trajectory DataFrame with monthly_payment
+        trajectories_df: Trajectory DataFrame with monthly_net_housing_cost
         ax: Matplotlib axes (creates new if None)
     
     Returns:
@@ -450,36 +642,46 @@ def plot_2d_wealth_vs_payment_scatter(
         fig, ax = plt.subplots(figsize=(12, 8))
     
     scenarios = sorted(summary_df['scenario_label'].unique())
-    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
     
-    for i, scenario in enumerate(scenarios):
+    # Separate rental baseline from buying scenarios
+    rental_baseline = None
+    buying_scenarios = []
+    for scenario in scenarios:
+        if 'rental' in scenario.lower() and 'baseline' in scenario.lower():
+            rental_baseline = scenario
+        else:
+            buying_scenarios.append(scenario)
+    
+    colors = [plt.cm.tab10(i) for i in range(len(buying_scenarios))]
+    
+    # Plot buying scenarios
+    for i, scenario in enumerate(buying_scenarios):
         # Get final wealth for each sample
         scenario_summary = summary_df[summary_df['scenario_label'] == scenario]
         
-        # Calculate average monthly payment per sample across all years
+        # Calculate average net housing cost per sample across all years
         scenario_traj = trajectories_df[trajectories_df['scenario_label'] == scenario]
-        avg_payments = scenario_traj.groupby('sample_id')['monthly_payment'].mean()
+        avg_costs = scenario_traj.groupby('sample_id')['monthly_net_housing_cost'].mean()
         
         # Merge to get both metrics per sample
         plot_data = scenario_summary.set_index('sample_id')[['final_wealth']].join(
-            avg_payments.rename('avg_monthly_payment')
+            avg_costs.rename('avg_monthly_cost')
         )
         
         # Calculate statistics
-        payment_mean = plot_data['avg_monthly_payment'].mean()
-        payment_p10 = plot_data['avg_monthly_payment'].quantile(0.1)
-        payment_p90 = plot_data['avg_monthly_payment'].quantile(0.9)
+        cost_mean = plot_data['avg_monthly_cost'].mean()
+        cost_p10 = plot_data['avg_monthly_cost'].quantile(0.1)
+        cost_p90 = plot_data['avg_monthly_cost'].quantile(0.9)
         
         wealth_mean = plot_data['final_wealth'].mean()
         wealth_p10 = plot_data['final_wealth'].quantile(0.1)
         wealth_p90 = plot_data['final_wealth'].quantile(0.9)
         
         # Draw rectangle showing P10-P90 range
-        from matplotlib.patches import Rectangle
-        rect_width = payment_p90 - payment_p10
+        rect_width = cost_p90 - cost_p10
         rect_height = wealth_p90 - wealth_p10
         rect = Rectangle(
-            (payment_p10, wealth_p10),
+            (cost_p10, wealth_p10),
             rect_width,
             rect_height,
             linewidth=2,
@@ -492,7 +694,7 @@ def plot_2d_wealth_vs_payment_scatter(
         
         # Plot as scatter with very low transparency
         ax.scatter(
-            plot_data['avg_monthly_payment'],
+            plot_data['avg_monthly_cost'],
             plot_data['final_wealth'],
             alpha=0.05,
             s=50,
@@ -504,7 +706,7 @@ def plot_2d_wealth_vs_payment_scatter(
         
         # Plot mean as star
         ax.scatter(
-            payment_mean,
+            cost_mean,
             wealth_mean,
             marker='*',
             s=400,
@@ -518,16 +720,46 @@ def plot_2d_wealth_vs_payment_scatter(
         # Add text label near the mean
         ax.annotate(
             scenario,
-            (payment_mean, wealth_mean),
+            (cost_mean, wealth_mean),
             xytext=(10, 10),
             textcoords='offset points',
             fontsize=9,
             bbox=dict(boxstyle='round,pad=0.3', facecolor=colors[i], alpha=0.3)
         )
     
-    ax.set_xlabel('Average Monthly Payment (€)', fontsize=12)
+    # Plot rental baseline (if present) as single point
+    if rental_baseline:
+        scenario_summary = summary_df[summary_df['scenario_label'] == rental_baseline]
+        scenario_traj = trajectories_df[trajectories_df['scenario_label'] == rental_baseline]
+        
+        # All samples are identical for rental
+        rental_cost = scenario_traj['monthly_net_housing_cost'].iloc[0]
+        rental_wealth = scenario_summary['final_wealth'].mean()
+        
+        ax.scatter(
+            rental_cost,
+            rental_wealth,
+            marker='s',
+            s=200,
+            color='#404040',
+            edgecolors='black',
+            linewidths=2,
+            zorder=11,
+            label=rental_baseline
+        )
+        
+        ax.annotate(
+            rental_baseline,
+            (rental_cost, rental_wealth),
+            xytext=(10, 10),
+            textcoords='offset points',
+            fontsize=9,
+            bbox=dict(boxstyle='round,pad=0.3', facecolor='#404040', alpha=0.3)
+        )
+    
+    ax.set_xlabel('Average Net Monthly Housing Cost (€)', fontsize=12)
     ax.set_ylabel('Final Wealth (€)', fontsize=12)
-    ax.set_title('Final Wealth vs Monthly Payment (★ = mean, shaded = P10-P90 range)', fontsize=14)
+    ax.set_title('Final Wealth vs Net Housing Cost (★ = mean, ■ = rental, shaded = P10-P90 range)', fontsize=14)
     ax.legend(loc='best', framealpha=0.9)
     ax.grid(True, alpha=0.3)
     ax.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5)
@@ -540,7 +772,98 @@ def plot_monthly_payment_over_time(
     ax: Optional[plt.Axes] = None
 ) -> plt.Axes:
     """
-    Plot mean monthly payment over time with P10-P90 range.
+    Plot mean net monthly housing cost over time with P10-P90 range.
+    
+    Args:
+        trajectories_df: Trajectory DataFrame with year and monthly_net_housing_cost columns
+        ax: Matplotlib axes (creates new if None)
+    
+    Returns:
+        Matplotlib axes
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 6))
+    
+    scenarios = sorted(trajectories_df['scenario_label'].unique())
+    
+    # Separate rental baseline from buying scenarios
+    rental_baseline = None
+    buying_scenarios = []
+    for scenario in scenarios:
+        if 'rental' in scenario.lower() and 'baseline' in scenario.lower():
+            rental_baseline = scenario
+        else:
+            buying_scenarios.append(scenario)
+    
+    colors = [plt.cm.tab10(i) for i in range(len(buying_scenarios))]
+    
+    # Plot buying scenarios
+    for i, scenario in enumerate(buying_scenarios):
+        scenario_data = trajectories_df[trajectories_df['scenario_label'] == scenario]
+        
+        # Group by year and calculate statistics
+        yearly_stats = scenario_data.groupby('year')['monthly_net_housing_cost'].agg([
+            ('mean', 'mean'),
+            ('p10', lambda x: x.quantile(0.1)),
+            ('p90', lambda x: x.quantile(0.9))
+        ]).reset_index()
+        
+        # Plot mean line
+        ax.plot(
+            yearly_stats['year'],
+            yearly_stats['mean'],
+            marker='o',
+            label=scenario,
+            color=colors[i],
+            linewidth=2
+        )
+        
+        # Fill between P10 and P90
+        ax.fill_between(
+            yearly_stats['year'],
+            yearly_stats['p10'],
+            yearly_stats['p90'],
+            alpha=0.2,
+            color=colors[i]
+        )
+    
+    # Plot rental baseline (if present)
+    if rental_baseline:
+        scenario_data = trajectories_df[trajectories_df['scenario_label'] == rental_baseline]
+        
+        # Group by year and calculate mean (all samples identical)
+        yearly_stats = scenario_data.groupby('year')['monthly_net_housing_cost'].mean().reset_index()
+        yearly_stats.columns = ['year', 'mean']
+        
+        # Plot rental baseline
+        ax.plot(
+            yearly_stats['year'],
+            yearly_stats['mean'],
+            marker='s',
+            label=rental_baseline,
+            color='#404040',
+            linestyle='--',
+            linewidth=2.5,
+            alpha=1.0,
+            zorder=10
+        )
+    
+    ax.set_xlabel('Year')
+    ax.set_ylabel('Net Monthly Housing Cost (€)')
+    ax.set_title('Mean Net Monthly Housing Cost Over Time (with P10-P90 range)')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    
+    return ax
+
+
+def plot_mortgage_payment_over_time(
+    trajectories_df: pd.DataFrame,
+    ax: Optional[plt.Axes] = None
+) -> plt.Axes:
+    """
+    Plot mean monthly mortgage payment (principal + interest only) over time with P10-P90 range.
+    Only includes buying scenarios (rental baseline excluded).
     
     Args:
         trajectories_df: Trajectory DataFrame with year and monthly_payment columns
@@ -553,9 +876,22 @@ def plot_monthly_payment_over_time(
         fig, ax = plt.subplots(figsize=(10, 6))
     
     scenarios = sorted(trajectories_df['scenario_label'].unique())
-    colors = [plt.cm.tab10(i) for i in range(len(scenarios))]
     
-    for i, scenario in enumerate(scenarios):
+    # Filter to buying scenarios only (exclude rental baseline)
+    buying_scenarios = []
+    for scenario in scenarios:
+        if not ('rental' in scenario.lower() and 'baseline' in scenario.lower()):
+            buying_scenarios.append(scenario)
+    
+    if not buying_scenarios:
+        ax.text(0.5, 0.5, 'No buying scenarios to plot',
+                ha='center', va='center', transform=ax.transAxes)
+        return ax
+    
+    colors = [plt.cm.tab10(i) for i in range(len(buying_scenarios))]
+    
+    # Plot buying scenarios
+    for i, scenario in enumerate(buying_scenarios):
         scenario_data = trajectories_df[trajectories_df['scenario_label'] == scenario]
         
         # Group by year and calculate statistics
@@ -585,8 +921,8 @@ def plot_monthly_payment_over_time(
         )
     
     ax.set_xlabel('Year')
-    ax.set_ylabel('Monthly Payment (€)')
-    ax.set_title('Mean Monthly Payment Over Time (with P10-P90 range)')
+    ax.set_ylabel('Monthly Mortgage Payment (€)')
+    ax.set_title('Mean Monthly Mortgage Payment Over Time (Principal + Interest, P10-P90 range)')
     ax.legend()
     ax.grid(True, alpha=0.3)
     
@@ -657,7 +993,6 @@ def plot_roi_and_cash_efficiency(
     ax.axhline(y=0, color='black', linestyle='--', linewidth=0.5)
     
     # Add legend
-    from matplotlib.patches import Patch
     legend_elements = [
         Patch(facecolor='gray', alpha=0.7, label='ROI (Wealth / Cash Outflow)'),
         Patch(facecolor='gray', alpha=0.4, hatch='//', label='Cash Efficiency (Equity / Cash Outflow)')
@@ -702,7 +1037,6 @@ def plot_roi_vs_cash_efficiency_2d(
         ce_p90 = scenario_data['cash_efficiency'].quantile(0.9)
         
         # Draw rectangle showing P10-P90 range
-        from matplotlib.patches import Rectangle
         rect_width = ce_p90 - ce_p10
         rect_height = roi_p90 - roi_p10
         rect = Rectangle(
@@ -787,7 +1121,6 @@ def plot_wealth_vs_cash_outflow(
         wealth_p90 = scenario_data['final_wealth'].quantile(0.9)
         
         # Draw rectangle showing P10-P90 range
-        from matplotlib.patches import Rectangle
         rect_width = outflow_p90 - outflow_p10
         rect_height = wealth_p90 - wealth_p10
         rect = Rectangle(
@@ -972,21 +1305,28 @@ def generate_comparison_plots(
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 9: Monthly Payment Over Time
+        # Plot 9: Net Housing Cost Over Time
         fig, ax = plt.subplots(figsize=(10, 6))
         plot_monthly_payment_over_time(trajectories_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 10: Monthly Payment Distributions
+        # Plot 10: Mortgage Payment Over Time (buying scenarios only)
+        fig, ax = plt.subplots(figsize=(10, 6))
+        plot_mortgage_payment_over_time(trajectories_df, ax=ax)
+        plt.tight_layout()
+        pdf.savefig(fig)
+        plt.close()
+        
+        # Plot 11: Monthly Payment Distributions
         fig, ax = plt.subplots(figsize=(10, 6))
         plot_monthly_payment_distributions(trajectories_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 11: ROI and Cash Efficiency (Box plots)
+        # Plot 12: ROI and Cash Efficiency (Box plots)
         if 'roi' in summary_df.columns and 'cash_efficiency' in summary_df.columns:
             fig, ax = plt.subplots(figsize=(12, 6))
             plot_roi_and_cash_efficiency(summary_df, ax=ax)
@@ -994,7 +1334,7 @@ def generate_comparison_plots(
             pdf.savefig(fig)
             plt.close()
         
-        # Plot 12: ROI vs Cash Efficiency 2D Scatter
+        # Plot 13: ROI vs Cash Efficiency 2D Scatter
         if 'roi' in summary_df.columns and 'cash_efficiency' in summary_df.columns:
             fig, ax = plt.subplots(figsize=(10, 8))
             plot_roi_vs_cash_efficiency_2d(summary_df, ax=ax)
@@ -1002,7 +1342,7 @@ def generate_comparison_plots(
             pdf.savefig(fig)
             plt.close()
         
-        # Plot 13: Wealth vs Cash Outflow
+        # Plot 14: Wealth vs Cash Outflow
         if 'total_cash_outflow' in summary_df.columns:
             fig, ax = plt.subplots(figsize=(10, 6))
             plot_wealth_vs_cash_outflow(summary_df, ax=ax)
@@ -1010,7 +1350,7 @@ def generate_comparison_plots(
             pdf.savefig(fig)
             plt.close()
         
-        # Plot 14: Mortgage Performance Over Time
+        # Plot 15: Mortgage Performance Over Time
         if 'mortgage_balance' in trajectories_df.columns:
             fig, ax = plt.subplots(figsize=(12, 6))
             plot_mortgage_performance_over_time(trajectories_df, ax=ax)

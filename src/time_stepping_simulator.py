@@ -26,6 +26,8 @@ from copy import deepcopy
 from src.estate import BuyingScenario, evaluate_buying
 from src.markov_regime import MarkovChainConfig, REGIME_LABELS
 from src.mortgage import MortgageLoan
+from src.estate import _get_mortgage_config
+
 
 
 @dataclass
@@ -43,7 +45,8 @@ class TimeStepState:
         wealth: equity + cumulative_cashflow
         annual_interest_paid: Interest paid this year
         annual_principal_paid: Principal paid this year
-        monthly_payment: Current monthly payment
+        monthly_payment: Current monthly mortgage payment (principal + interest only)
+        monthly_net_housing_cost: Total housing cost (mortgage + VVE + utilities - rent_income)
         property_growth_rate: Realized growth rate this year
         mortgage_rate: Current mortgage rate
     """
@@ -57,6 +60,7 @@ class TimeStepState:
     annual_interest_paid: float
     annual_principal_paid: float
     monthly_payment: float
+    monthly_net_housing_cost: float
     property_growth_rate: float
     mortgage_rate: float
 
@@ -136,6 +140,7 @@ class TimeSteppingSimulator:
             annual_interest_paid=0.0,
             annual_principal_paid=0.0,
             monthly_payment=0.0,
+            monthly_net_housing_cost=0.0,
             property_growth_rate=0.0,
             mortgage_rate=self.mortgage_rates[0]
         )
@@ -235,6 +240,9 @@ class TimeSteppingSimulator:
             # Monthly payment (average for the year)
             monthly_payment = (annual_interest + annual_principal) / 12
             
+            # Monthly net housing cost (total housing cost for fair comparison with rental)
+            monthly_net_housing_cost = (annual_interest + annual_principal + annual_vve_utilities - annual_rent_income) / 12
+            
             # Get the actual loan rate (weighted average if multiple loans)
             actual_loan_rate = mortgage_rate  # Default to market rate
             if scenario_year.mortgage_loans is not None and len(scenario_year.mortgage_loans) > 0:
@@ -257,6 +265,7 @@ class TimeSteppingSimulator:
                 annual_interest_paid=annual_interest,
                 annual_principal_paid=annual_principal,
                 monthly_payment=monthly_payment,
+                monthly_net_housing_cost=monthly_net_housing_cost,
                 property_growth_rate=growth_rate,
                 mortgage_rate=actual_loan_rate  # Use actual loan rate, not market rate
             )
@@ -266,7 +275,6 @@ class TimeSteppingSimulator:
     
     def _get_loans(self) -> List[MortgageLoan]:
         """Get mortgage loans from scenario."""
-        from src.estate import _get_mortgage_config
         return _get_mortgage_config(self.base_scenario)
     
     def _apply_mortgage_rates(
@@ -363,6 +371,7 @@ def simulate_scenario_with_fixed_paths(
                 'mortgage_balance': state.mortgage_balance,
                 'mortgage_rate': state.mortgage_rate,
                 'monthly_payment': state.monthly_payment,
+                'monthly_net_housing_cost': state.monthly_net_housing_cost,
                 'equity': state.equity,
                 'cumulative_cashflow': state.cumulative_cashflow,
                 'wealth': state.wealth,

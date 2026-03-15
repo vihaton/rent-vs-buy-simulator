@@ -12,13 +12,16 @@ import json
 
 from src.sensitivity import (
     _generate_values_for_strategy,
+    _rebuild_path_from_parts,
+    _set_nested_attr,
     generate_parameter_space,
     run_sensitivity_analysis,
     apply_constraints,
-    export_results
+    export_results,
 )
 from src.estate import BuyingScenario
 from src.tax import NLHomeTax2026
+from src.mortgage import MortgageLoan
 
 
 class TestGenerateValuesForStrategy:
@@ -581,8 +584,6 @@ class TestWildcardParameterPaths:
     
     def test_wildcard_applies_to_all_list_elements(self):
         """Test that wildcard [*] applies value to all elements in a list."""
-        from src.sensitivity import _set_nested_attr
-        from src.mortgage import MortgageLoan
         
         # Create a mock object with a list of mortgage loans
         class MockScenario:
@@ -621,8 +622,6 @@ class TestWildcardParameterPaths:
     
     def test_wildcard_with_simple_attribute(self):
         """Test wildcard with simple attribute (not nested)."""
-        from src.sensitivity import _set_nested_attr
-        from src.mortgage import MortgageLoan
         
         class MockScenario:
             def __init__(self):
@@ -654,7 +653,6 @@ class TestWildcardParameterPaths:
     
     def test_wildcard_on_non_list_raises_error(self):
         """Test that wildcard on non-list object raises ValueError."""
-        from src.sensitivity import _set_nested_attr
         
         class MockScenario:
             def __init__(self):
@@ -668,7 +666,6 @@ class TestWildcardParameterPaths:
     
     def test_rebuild_path_from_parts(self):
         """Test path reconstruction from parts."""
-        from src.sensitivity import _rebuild_path_from_parts
         
         # Test simple path
         parts = ['mortgage_loans', '0', 'annual_rate']

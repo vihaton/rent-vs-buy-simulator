@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import yaml
 
+from datetime import datetime
 import pandas as pd
 
 from src.sensitivity import generate_parameter_space, run_sensitivity_analysis
@@ -236,7 +237,6 @@ def export_comparison_results(
     Returns:
         Path to saved file
     """
-    from datetime import datetime
     
     # Create output directory
     output_path = Path(output_dir)

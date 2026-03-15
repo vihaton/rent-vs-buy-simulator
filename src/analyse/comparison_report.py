@@ -51,24 +51,39 @@ def extract_config_differences(summary_df: pd.DataFrame) -> tuple:
             with open(file_path, 'r') as f:
                 config = yaml.safe_load(f)
             
-            # Extract key configuration parameters
-            if 'buying' in config:
-                buying_config = config['buying']
-            else:
-                buying_config = config
+            # Check if this is a rental scenario
+            is_rental = 'rent_monthly' in config
             
-            config_summary = {
-                'purchase_price': buying_config.get('purchase_price'),
-                'mortgage_principal': buying_config.get('mortgage_principal'),
-                'mortgage_annual_rate': buying_config.get('mortgage_annual_rate'),
-                'mortgage_term_years': buying_config.get('mortgage_term_years'),
-                'living_months': buying_config.get('living_months', 360),
-                'one_off_costs': buying_config.get('one_off_costs', 0.0),
-                'monthly_vve': buying_config.get('monthly_vve', 0.0),
-                'monthly_utilities': buying_config.get('monthly_utilities', 0.0),
-                'sold_at_end': buying_config.get('sold_at_end', False),
-                'mortgage_loans': buying_config.get('mortgage_loans', [])
-            }
+            if is_rental:
+                # Rental scenario configuration
+                config_summary = {
+                    'scenario_type': 'rental',
+                    'rent_monthly': config.get('rent_monthly'),
+                    'utilities_monthly': config.get('utilities_monthly'),
+                    'living_months': config.get('living_months', 360),
+                    'annual_rent_increase': config.get('annual_rent_increase', 0.0),
+                    'description': config.get('description')
+                }
+            else:
+                # Buying scenario configuration
+                if 'buying' in config:
+                    buying_config = config['buying']
+                else:
+                    buying_config = config
+                
+                config_summary = {
+                    'scenario_type': 'buying',
+                    'purchase_price': buying_config.get('purchase_price'),
+                    'mortgage_principal': buying_config.get('mortgage_principal'),
+                    'mortgage_annual_rate': buying_config.get('mortgage_annual_rate'),
+                    'mortgage_term_years': buying_config.get('mortgage_term_years'),
+                    'living_months': buying_config.get('living_months', 360),
+                    'one_off_costs': buying_config.get('one_off_costs', 0.0),
+                    'monthly_vve': buying_config.get('monthly_vve', 0.0),
+                    'monthly_utilities': buying_config.get('monthly_utilities', 0.0),
+                    'sold_at_end': buying_config.get('sold_at_end', False),
+                    'mortgage_loans': buying_config.get('mortgage_loans', [])
+                }
             
             configs[label] = config_summary
         except Exception as e:
@@ -260,53 +275,67 @@ def generate_comparison_report(
             lines.append("")
             continue
         
-        lines.append("| Parameter | Value |")
-        lines.append("|-----------|-------|")
-        lines.append(f"| Purchase Price | {format_currency(config.get('purchase_price', 0))} |")
-        
-        if config.get('mortgage_principal'):
-            lines.append(f"| Mortgage Principal | {format_currency(config.get('mortgage_principal', 0))} |")
-        
-        if config.get('mortgage_annual_rate'):
-            lines.append(f"| Mortgage Annual Rate | {config.get('mortgage_annual_rate', 0)*100:.2f}% |")
-        
-        if config.get('mortgage_term_years'):
-            lines.append(f"| Mortgage Term | {config.get('mortgage_term_years', 0)} years |")
-        
-        lines.append(f"| Living Duration | {config.get('living_months', 360)} months ({config.get('living_months', 360)//12} years) |")
-        lines.append(f"| One-off Costs | {format_currency(config.get('one_off_costs', 0))} |")
-        lines.append(f"| Monthly VVE | {format_currency(config.get('monthly_vve', 0))} |")
-        lines.append(f"| Monthly Utilities | {format_currency(config.get('monthly_utilities', 0))} |")
-        lines.append(f"| Sold at End | {config.get('sold_at_end', False)} |")
-        
-        # Mortgage loans details
-        mortgage_loans = config.get('mortgage_loans', [])
-        if mortgage_loans:
-            lines.append("")
-            lines.append("**Mortgage Loans:**")
-            lines.append("")
-            for idx, loan in enumerate(mortgage_loans, 1):
-                lines.append(f"*Loan {idx}: {loan.get('label', 'Unnamed')}*")
+        # Check if this is a rental scenario
+        if config.get('scenario_type') == 'rental':
+            lines.append("| Parameter | Value |")
+            lines.append("|-----------|-------|")
+            lines.append(f"| Scenario Type | Rental |")
+            lines.append(f"| Monthly Rent | {format_currency(config.get('rent_monthly', 0))} |")
+            lines.append(f"| Monthly Utilities | {format_currency(config.get('utilities_monthly', 0))} |")
+            lines.append(f"| Living Duration | {config.get('living_months', 360)} months ({config.get('living_months', 360)//12} years) |")
+            lines.append(f"| Annual Rent Increase | {config.get('annual_rent_increase', 0)*100:.2f}% |")
+            if config.get('description'):
+                lines.append(f"| Description | {config.get('description')} |")
+        else:
+            # Buying scenario
+            lines.append("| Parameter | Value |")
+            lines.append("|-----------|-------|")
+            lines.append(f"| Scenario Type | Buying |")
+            lines.append(f"| Purchase Price | {format_currency(config.get('purchase_price', 0))} |")
+            
+            if config.get('mortgage_principal'):
+                lines.append(f"| Mortgage Principal | {format_currency(config.get('mortgage_principal', 0))} |")
+            
+            if config.get('mortgage_annual_rate'):
+                lines.append(f"| Mortgage Annual Rate | {config.get('mortgage_annual_rate', 0)*100:.2f}% |")
+            
+            if config.get('mortgage_term_years'):
+                lines.append(f"| Mortgage Term | {config.get('mortgage_term_years', 0)} years |")
+            
+            lines.append(f"| Living Duration | {config.get('living_months', 360)} months ({config.get('living_months', 360)//12} years) |")
+            lines.append(f"| One-off Costs | {format_currency(config.get('one_off_costs', 0))} |")
+            lines.append(f"| Monthly VVE | {format_currency(config.get('monthly_vve', 0))} |")
+            lines.append(f"| Monthly Utilities | {format_currency(config.get('monthly_utilities', 0))} |")
+            lines.append(f"| Sold at End | {config.get('sold_at_end', False)} |")
+            
+            # Mortgage loans details
+            mortgage_loans = config.get('mortgage_loans', [])
+            if mortgage_loans:
                 lines.append("")
-                lines.append("| Parameter | Value |")
-                lines.append("|-----------|-------|")
-                
-                if loan.get('principal'):
-                    lines.append(f"| Principal | {format_currency(loan.get('principal', 0))} |")
-                elif loan.get('percentage'):
-                    lines.append(f"| Principal | {loan.get('percentage', 0)*100:.1f}% of purchase price |")
-                
-                lines.append(f"| Annual Rate | {loan.get('annual_rate', 0)*100:.2f}% |")
-                lines.append(f"| Term | {loan.get('term_years', 0)} years |")
-                lines.append(f"| Amortization Type | {loan.get('amortization_type', 'ANNUITY')} |")
-                
-                if loan.get('fixed_period_years'):
-                    lines.append(f"| Fixed Period | {loan.get('fixed_period_years', 0)} years |")
-                
-                if loan.get('rate_resets'):
-                    lines.append(f"| Rate Resets | {len(loan.get('rate_resets', []))} scheduled |")
-                
+                lines.append("**Mortgage Loans:**")
                 lines.append("")
+                for idx, loan in enumerate(mortgage_loans, 1):
+                    lines.append(f"*Loan {idx}: {loan.get('label', 'Unnamed')}*")
+                    lines.append("")
+                    lines.append("| Parameter | Value |")
+                    lines.append("|-----------|-------|")
+                    
+                    if loan.get('principal'):
+                        lines.append(f"| Principal | {format_currency(loan.get('principal', 0))} |")
+                    elif loan.get('percentage'):
+                        lines.append(f"| Principal | {loan.get('percentage', 0)*100:.1f}% of purchase price |")
+                    
+                    lines.append(f"| Annual Rate | {loan.get('annual_rate', 0)*100:.2f}% |")
+                    lines.append(f"| Term | {loan.get('term_years', 0)} years |")
+                    lines.append(f"| Amortization Type | {loan.get('amortization_type', 'ANNUITY')} |")
+                    
+                    if loan.get('fixed_period_years'):
+                        lines.append(f"| Fixed Period | {loan.get('fixed_period_years', 0)} years |")
+                    
+                    if loan.get('rate_resets'):
+                        lines.append(f"| Rate Resets | {len(loan.get('rate_resets', []))} scheduled |")
+                    
+                    lines.append("")
         
         lines.append("")
     
@@ -317,83 +346,164 @@ def generate_comparison_report(
     lines.append("## Executive Summary")
     lines.append("")
     
+    # Identify rental baseline
+    rental_baseline = None
+    buying_scenarios = []
+    for scenario in scenarios:
+        if 'rental' in scenario.lower() and 'baseline' in scenario.lower():
+            rental_baseline = scenario
+        else:
+            buying_scenarios.append(scenario)
+    
+    # Rental Baseline Comparison (if present)
+    if rental_baseline:
+        lines.append("### 🏠 Rental Baseline Comparison")
+        lines.append("")
+        lines.append("Comparison of buying scenarios against the rental baseline:")
+        lines.append("")
+        
+        rental_data = summary_df[summary_df['scenario_label'] == rental_baseline]
+        rental_wealth = rental_data['final_wealth'].mean()
+        rental_traj = trajectories_df[trajectories_df['scenario_label'] == rental_baseline]
+        rental_cost = rental_traj['monthly_net_housing_cost'].iloc[0]  # All identical
+        
+        lines.append("| Scenario | Final Wealth | Wealth vs Rental | Avg Net Housing Cost | Cost vs Rental |")
+        lines.append("|----------|--------------|------------------|----------------------|----------------|")
+        
+        # Rental baseline row
+        lines.append(f"| **{rental_baseline}** | {format_currency(rental_wealth)} | - | {format_currency(rental_cost)} | - |")
+        
+        # Buying scenarios
+        for scenario in buying_scenarios:
+            scenario_data = summary_df[summary_df['scenario_label'] == scenario]
+            mean_wealth = scenario_data['final_wealth'].mean()
+            wealth_diff = mean_wealth - rental_wealth
+            
+            traj_scenario = trajectories_df[trajectories_df['scenario_label'] == scenario]
+            avg_cost = traj_scenario['monthly_net_housing_cost'].mean()
+            cost_diff = avg_cost - rental_cost
+            
+            wealth_sign = "+" if wealth_diff >= 0 else ""
+            cost_sign = "+" if cost_diff >= 0 else ""
+            
+            lines.append(f"| {scenario} | {format_currency(mean_wealth)} | {wealth_sign}{format_currency(wealth_diff)} | {format_currency(avg_cost)} | {cost_sign}{format_currency(cost_diff)} |")
+        
+        lines.append("")
+        lines.append("*Note: Positive wealth difference means buying outperforms renting. Positive cost difference means buying costs more per month.*")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+    
     # Expected Outcomes
     lines.append("### Expected Outcomes (Mean)")
     lines.append("")
-    lines.append("| Scenario | Final Wealth | Total Interest | Avg Monthly Payment |")
-    lines.append("|----------|--------------|----------------|---------------------|")
+    lines.append("| Scenario | Final Wealth | Total Interest | Avg Net Housing Cost |")
+    lines.append("|----------|--------------|----------------|----------------------|")
     
     for scenario in scenarios:
         scenario_data = summary_df[summary_df['scenario_label'] == scenario]
         mean_wealth = scenario_data['final_wealth'].mean()
-        mean_interest = scenario_data['total_interest_paid'].mean()
         
-        # Calculate average monthly payment from trajectories
+        # Calculate average net housing cost from trajectories
         traj_scenario = trajectories_df[trajectories_df['scenario_label'] == scenario]
-        avg_monthly = traj_scenario['monthly_payment'].mean()
+        avg_cost = traj_scenario['monthly_net_housing_cost'].mean()
         
-        lines.append(f"| {scenario} | {format_currency(mean_wealth)} | {format_currency(mean_interest)} | {format_currency(avg_monthly)} |")
+        # Total interest only for buying scenarios
+        if scenario == rental_baseline:
+            lines.append(f"| {scenario} | {format_currency(mean_wealth)} | N/A | {format_currency(avg_cost)} |")
+        else:
+            mean_interest = scenario_data['total_interest_paid'].mean()
+            lines.append(f"| {scenario} | {format_currency(mean_wealth)} | {format_currency(mean_interest)} | {format_currency(avg_cost)} |")
     
     lines.append("")
     
-    # Find best scenario
-    best_scenario = summary_df.groupby('scenario_label')['final_wealth'].mean().idxmax()
-    best_wealth = summary_df.groupby('scenario_label')['final_wealth'].mean().max()
-    lines.append(f"**Winner (Expected)**: {best_scenario} ({format_currency(best_wealth)})")
+    # Find best scenario (excluding rental baseline)
+    if buying_scenarios:
+        buying_summary = summary_df[summary_df['scenario_label'].isin(buying_scenarios)]
+        best_scenario = buying_summary.groupby('scenario_label')['final_wealth'].mean().idxmax()
+        best_wealth = buying_summary.groupby('scenario_label')['final_wealth'].mean().max()
+        lines.append(f"**Winner (Expected)**: {best_scenario} ({format_currency(best_wealth)})")
+        
+        if rental_baseline:
+            rental_wealth = summary_df[summary_df['scenario_label'] == rental_baseline]['final_wealth'].mean()
+            if best_wealth > rental_wealth:
+                lines.append(f"   - Outperforms rental baseline by {format_currency(best_wealth - rental_wealth)}")
+            else:
+                lines.append(f"   - Underperforms rental baseline by {format_currency(rental_wealth - best_wealth)}")
+    else:
+        best_scenario = summary_df.groupby('scenario_label')['final_wealth'].mean().idxmax()
+        best_wealth = summary_df.groupby('scenario_label')['final_wealth'].mean().max()
+        lines.append(f"**Winner (Expected)**: {best_scenario} ({format_currency(best_wealth)})")
+    
     lines.append("")
     
     # Risk Analysis
     lines.append("### Risk Analysis (10th Percentile)")
     lines.append("")
-    lines.append("| Scenario | P10 Wealth | P10 Monthly Payment |")
-    lines.append("|----------|------------|---------------------|")
+    lines.append("| Scenario | P10 Wealth | P10 Net Housing Cost |")
+    lines.append("|----------|------------|----------------------|")
     
     for scenario in scenarios:
         scenario_data = summary_df[summary_df['scenario_label'] == scenario]
         p10_wealth = scenario_data['final_wealth'].quantile(0.1)
         
-        # Find sample_ids in the P10 wealth percentile
-        p10_threshold = scenario_data['final_wealth'].quantile(0.1)
-        p10_samples = scenario_data[scenario_data['final_wealth'] <= p10_threshold]['sample_id']
+        # For rental baseline, all samples are identical
+        if scenario == rental_baseline:
+            traj_scenario = trajectories_df[trajectories_df['scenario_label'] == scenario]
+            p10_cost = traj_scenario['monthly_net_housing_cost'].iloc[0]
+        else:
+            # Find sample_ids in the P10 wealth percentile
+            p10_threshold = scenario_data['final_wealth'].quantile(0.1)
+            p10_samples = scenario_data[scenario_data['final_wealth'] <= p10_threshold]['sample_id']
+            
+            # Calculate average net housing cost for those specific samples
+            traj_scenario = trajectories_df[
+                (trajectories_df['scenario_label'] == scenario) &
+                (trajectories_df['sample_id'].isin(p10_samples))
+            ]
+            p10_cost = traj_scenario['monthly_net_housing_cost'].mean()
         
-        # Calculate average monthly payment for those specific samples
-        traj_scenario = trajectories_df[
-            (trajectories_df['scenario_label'] == scenario) &
-            (trajectories_df['sample_id'].isin(p10_samples))
-        ]
-        p10_monthly = traj_scenario['monthly_payment'].mean()
-        
-        lines.append(f"| {scenario} | {format_currency(p10_wealth)} | {format_currency(p10_monthly)} |")
+        lines.append(f"| {scenario} | {format_currency(p10_wealth)} | {format_currency(p10_cost)} |")
     
     lines.append("")
     
-    # Find best downside scenario
-    best_downside = summary_df.groupby('scenario_label')['final_wealth'].quantile(0.1).idxmax()
-    lines.append(f"**Winner (Downside)**: {best_downside} (best worst-case outcome)")
+    # Find best downside scenario (excluding rental baseline for buying comparison)
+    if buying_scenarios:
+        buying_summary = summary_df[summary_df['scenario_label'].isin(buying_scenarios)]
+        best_downside = buying_summary.groupby('scenario_label')['final_wealth'].quantile(0.1).idxmax()
+        lines.append(f"**Winner (Downside)**: {best_downside} (best worst-case outcome among buying scenarios)")
+    else:
+        best_downside = summary_df.groupby('scenario_label')['final_wealth'].quantile(0.1).idxmax()
+        lines.append(f"**Winner (Downside)**: {best_downside} (best worst-case outcome)")
     lines.append("")
     
     # Upside Potential
     lines.append("### Upside Potential (90th Percentile)")
     lines.append("")
-    lines.append("| Scenario | P90 Wealth | P90 Monthly Payment |")
-    lines.append("|----------|------------|---------------------|")
+    lines.append("| Scenario | P90 Wealth | P90 Net Housing Cost |")
+    lines.append("|----------|------------|----------------------|")
     
     for scenario in scenarios:
         scenario_data = summary_df[summary_df['scenario_label'] == scenario]
         p90_wealth = scenario_data['final_wealth'].quantile(0.9)
         
-        # Find sample_ids in the P90 wealth percentile
-        p90_threshold = scenario_data['final_wealth'].quantile(0.9)
-        p90_samples = scenario_data[scenario_data['final_wealth'] >= p90_threshold]['sample_id']
+        # For rental baseline, all samples are identical
+        if scenario == rental_baseline:
+            traj_scenario = trajectories_df[trajectories_df['scenario_label'] == scenario]
+            p90_cost = traj_scenario['monthly_net_housing_cost'].iloc[0]
+        else:
+            # Find sample_ids in the P90 wealth percentile
+            p90_threshold = scenario_data['final_wealth'].quantile(0.9)
+            p90_samples = scenario_data[scenario_data['final_wealth'] >= p90_threshold]['sample_id']
+            
+            # Calculate average net housing cost for those specific samples
+            traj_scenario = trajectories_df[
+                (trajectories_df['scenario_label'] == scenario) &
+                (trajectories_df['sample_id'].isin(p90_samples))
+            ]
+            p90_cost = traj_scenario['monthly_net_housing_cost'].mean()
         
-        # Calculate average monthly payment for those specific samples
-        traj_scenario = trajectories_df[
-            (trajectories_df['scenario_label'] == scenario) &
-            (trajectories_df['sample_id'].isin(p90_samples))
-        ]
-        p90_monthly = traj_scenario['monthly_payment'].mean()
-        
-        lines.append(f"| {scenario} | {format_currency(p90_wealth)} | {format_currency(p90_monthly)} |")
+        lines.append(f"| {scenario} | {format_currency(p90_wealth)} | {format_currency(p90_cost)} |")
     
     lines.append("")
     

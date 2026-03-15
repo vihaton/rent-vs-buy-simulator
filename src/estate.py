@@ -17,6 +17,7 @@ class RentingScenario:
     rent_monthly: float
     utilities_monthly: float
     living_months: int
+    annual_rent_increase: float = 0.0  # Annual rent increase rate (e.g., 0.011 for 1.1%)
     description: Optional[str] = None
     link: Optional[str] = None
 

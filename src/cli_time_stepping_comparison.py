@@ -145,6 +145,11 @@ Output files:
     )
     
     parser.add_argument(
+        '--rental-baseline',
+        help='Path to rental scenario YAML for baseline comparison (optional)'
+    )
+    
+    parser.add_argument(
         '--quick',
         action='store_true',
         help='Quick mode: skip plots and detailed analysis'
@@ -258,6 +263,7 @@ Output files:
             markov_config=markov_config,
             n_samples=args.n_samples,
             seed=args.seed,
+            rental_baseline_path=args.rental_baseline,
             verbose=args.verbose
         )
     except Exception as e:
