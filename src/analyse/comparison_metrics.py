@@ -247,7 +247,8 @@ def calculate_exit_timing_analysis(
     
     Args:
         summary_df: Summary DataFrame with wealth_year_X columns
-        years: Years to analyze (default: [5, 10, 15, 20, 25, 30])
+        years: Years to analyze (default: auto-detect from available columns,
+               or [5, 10, 15, 20, 25, 30] if none specified)
     
     Returns:
         DataFrame with columns:
@@ -258,9 +259,24 @@ def calculate_exit_timing_analysis(
             - p50_wealth
             - p90_wealth
             - prob_negative: Probability of negative wealth
+        
+        Returns empty DataFrame if no wealth_year_X columns are found.
     """
+    # Auto-detect available years from columns
+    wealth_cols = [col for col in summary_df.columns if col.startswith('wealth_year_')]
+    available_years = sorted([int(col.split('_')[-1]) for col in wealth_cols])
+    
     if years is None:
-        years = [5, 10, 15, 20, 25, 30]
+        if available_years:
+            # Use available years, but filter to common checkpoints if possible
+            common_checkpoints = [5, 10, 15, 20, 25, 30]
+            years = [y for y in common_checkpoints if y in available_years]
+            # If no common checkpoints match, use all available years
+            if not years:
+                years = available_years
+        else:
+            # No wealth columns found, return empty DataFrame
+            return pd.DataFrame()
     
     results = []
     for scenario in summary_df['scenario_label'].unique():

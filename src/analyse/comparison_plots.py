@@ -551,7 +551,7 @@ def plot_wealth_trajectory_boxplots(
     
     Args:
         trajectories_df: Trajectory DataFrame
-        years: Years to plot (default: [5, 10, 15, 20, 25, 30])
+        years: Years to plot (default: auto-detect from data, or [5, 10, 15, 20, 25, 30])
         ax: Matplotlib axes (creates new if None)
     
     Returns:
@@ -560,8 +560,14 @@ def plot_wealth_trajectory_boxplots(
     if ax is None:
         fig, ax = plt.subplots(figsize=(14, 6))
     
+    # Auto-detect available years if not specified
     if years is None:
-        years = [5, 10, 15, 20, 25, 30]
+        available_years = sorted(trajectories_df['year'].unique())
+        common_checkpoints = [5, 10, 15, 20, 25, 30]
+        years = [y for y in common_checkpoints if y in available_years]
+        # If no common checkpoints match, use all available years
+        if not years:
+            years = available_years
     
     scenarios = sorted(trajectories_df['scenario_label'].unique())
     
@@ -614,6 +620,13 @@ def plot_wealth_trajectory_boxplots(
         year_end_pos = pos - 1
         year_positions[year] = (year_start_pos, year_end_pos)
         pos += 0.5  # Gap between years
+    
+    # Only create boxplot if we have data
+    if not data_to_plot:
+        ax.text(0.5, 0.5, 'No data available for selected years',
+                ha='center', va='center', transform=ax.transAxes, fontsize=12)
+        ax.set_title('Wealth Distribution Over Time (Boxplots per 5 Years)')
+        return ax
     
     bp = ax.boxplot(data_to_plot, positions=positions, widths=0.6, patch_artist=True)
     

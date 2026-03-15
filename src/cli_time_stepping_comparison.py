@@ -210,11 +210,9 @@ Output files:
             print(f"Error: Scenario not found: {scenario_path}", file=sys.stderr)
             sys.exit(1)
     
-    # Create output directory with number of scenarios and timestamp
+    # Create timestamp and prepare output directory (will be finalized after determining horizon)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     n_scenarios = len(args.scenarios)
-    output_dir_name = f"{args.output}_{n_scenarios}s_{markov_str}_{timestamp}"
-    output_dir = Path(output_dir_name)
     
     if args.verbose:
         print("=" * 80)
@@ -230,7 +228,6 @@ Output files:
             print(f"  {i}. {Path(scenario).name}")
         print(f"Samples: {args.n_samples:,}")
         print(f"Seed: {args.seed}")
-        print(f"Output: {output_dir}")
         print("=" * 80)
         print()
     
@@ -271,9 +268,17 @@ Output files:
         traceback.print_exc()
         sys.exit(1)
     
+    # Determine horizon from trajectories and create output directory with horizon info
+    horizon_years = int(trajectories_df['year'].max())
+    output_dir_name = f"{args.output}_{horizon_years}y_{n_scenarios}s_{markov_str}_{timestamp}"
+    output_dir = Path(output_dir_name)
+    
+    if args.verbose:
+        print(f"Output directory: {output_dir}")
+        print()
+    
     # Export results
     if args.verbose:
-        print()
         print("Exporting results...")
     
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -315,9 +320,6 @@ Output files:
         if args.verbose:
             print()
             print("Generating comparison report...")
-        
-        # Determine horizon from first scenario
-        horizon_years = trajectories_df['year'].max()
         
         generate_comparison_report(
             summary_df,
@@ -368,6 +370,7 @@ Output files:
         
         print()
         print(f"Full results saved to: {output_dir}")
+        print(f"  (Horizon: {horizon_years} years, {n_scenarios} scenarios)")
         print()
     
     return 0

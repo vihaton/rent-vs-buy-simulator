@@ -573,22 +573,26 @@ def generate_comparison_report(
         
         lines.append("")
     
-    # Exit Timing Analysis
-    lines.append("## Exit Timing Analysis")
-    lines.append("")
-    
-    for year in [10, 20, 30]:
-        year_data = exit_timing[exit_timing['year'] == year]
-        if not year_data.empty:
-            lines.append(f"### Wealth at Year {year}")
-            lines.append("")
-            lines.append("| Scenario | Mean | P10 | P90 | Prob(Negative) |")
-            lines.append("|----------|------|-----|-----|----------------|")
-            
-            for _, row in year_data.iterrows():
-                lines.append(f"| {row['scenario_label']} | {format_currency(row['mean_wealth'])} | {format_currency(row['p10_wealth'])} | {format_currency(row['p90_wealth'])} | {format_percentage(row['prob_negative'])} |")
-            
-            lines.append("")
+    # Exit Timing Analysis (only if data is available)
+    if not exit_timing.empty:
+        lines.append("## Exit Timing Analysis")
+        lines.append("")
+        
+        # Get unique years from exit_timing data
+        available_years = sorted(exit_timing['year'].unique())
+        
+        for year in available_years:
+            year_data = exit_timing[exit_timing['year'] == year]
+            if not year_data.empty:
+                lines.append(f"### Wealth at Year {year}")
+                lines.append("")
+                lines.append("| Scenario | Mean | P10 | P90 | Prob(Negative) |")
+                lines.append("|----------|------|-----|-----|----------------|")
+                
+                for _, row in year_data.iterrows():
+                    lines.append(f"| {row['scenario_label']} | {format_currency(row['mean_wealth'])} | {format_currency(row['p10_wealth'])} | {format_currency(row['p90_wealth'])} | {format_percentage(row['prob_negative'])} |")
+                
+                lines.append("")
     
     # Recommendations
     lines.append("## Recommendations")
