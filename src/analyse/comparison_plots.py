@@ -252,6 +252,94 @@ def plot_regime_conditional_performance(
     return ax
 
 
+def plot_property_value_by_crisis(
+    summary_df: pd.DataFrame,
+    regime_column: str = 'years_in_crisis',
+    ax: Optional[plt.Axes] = None
+) -> plt.Axes:
+    """
+    Plot final property value conditional on years in crisis as box plots.
+    
+    Shows how apartment valuations at the end of the observation period
+    vary based on the number of years spent in crisis regime. Since all
+    scenarios share the same regime paths and property growth rates, the
+    property value is the same across scenarios - this plot shows one
+    boxplot per crisis exposure bin.
+    
+    Args:
+        summary_df: Summary DataFrame
+        regime_column: Column to condition on (default: 'years_in_crisis')
+        ax: Matplotlib axes (creates new if None)
+    
+    Returns:
+        Matplotlib axes
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Create regime bins
+    bins = [0, 2, 5, 8, 30]
+    summary_df = summary_df.copy()
+    summary_df['regime_bin'] = pd.cut(
+        summary_df[regime_column],
+        bins=bins,
+        labels=[f"{bins[i]}-{bins[i+1]}" for i in range(len(bins)-1)],
+        include_lowest=True
+    )
+    
+    # Filter out rental baseline (no property ownership)
+    buying_scenarios = []
+    for scenario in summary_df['scenario_label'].unique():
+        if not ('rental' in scenario.lower() and 'baseline' in scenario.lower()):
+            buying_scenarios.append(scenario)
+    
+    summary_df = summary_df[summary_df['scenario_label'].isin(buying_scenarios)]
+    
+    if summary_df.empty:
+        ax.text(0.5, 0.5, 'No buying scenarios to plot',
+                ha='center', va='center', transform=ax.transAxes)
+        return ax
+    
+    # Since property value is the same across all scenarios (shared regime paths),
+    # we only need to take unique samples by sample_id to avoid duplicates
+    summary_df_unique = summary_df.drop_duplicates(subset=['sample_id', 'regime_bin'])
+    
+    regime_bins = sorted(summary_df_unique['regime_bin'].dropna().unique())
+    
+    # Prepare data for box plot - one box per regime bin
+    data_to_plot = []
+    labels = []
+    
+    for bin_label in regime_bins:
+        data = summary_df_unique[
+            summary_df_unique['regime_bin'] == bin_label
+        ]['final_property_value']
+        
+        if len(data) > 0:
+            data_to_plot.append(data)
+            labels.append(f'{bin_label} years\nin crisis')
+    
+    if not data_to_plot:
+        ax.text(0.5, 0.5, 'No data to plot',
+                ha='center', va='center', transform=ax.transAxes)
+        return ax
+    
+    # Create boxplot with single color
+    bp = ax.boxplot(data_to_plot, labels=labels, patch_artist=True, widths=0.6)
+    
+    # Color all boxes the same
+    for patch in bp['boxes']:
+        patch.set_facecolor(plt.cm.tab10(0))
+        patch.set_alpha(0.7)
+    
+    ax.set_ylabel('Final Property Value (€)')
+    ax.set_xlabel('Years in Crisis Regime')
+    ax.set_title('Final Apartment Valuation by Years in Crisis')
+    ax.grid(True, alpha=0.3, axis='y')
+    
+    return ax
+
+
 def plot_exit_timing_analysis(
     summary_df: pd.DataFrame,
     years: Optional[List[int]] = None,
@@ -1260,21 +1348,28 @@ def generate_comparison_plots(
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 3: Regime-Conditional Performance
+        # Plot 3: Regime-Conditional Performance (Final Wealth)
         fig, ax = plt.subplots(figsize=(12, 6))
         plot_regime_conditional_performance(summary_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 4: Exit Timing Analysis
+        # Plot 4: Property Value by Years in Crisis
+        fig, ax = plt.subplots(figsize=(12, 6))
+        plot_property_value_by_crisis(summary_df, ax=ax)
+        plt.tight_layout()
+        pdf.savefig(fig)
+        plt.close()
+        
+        # Plot 6: Exit Timing Analysis
         fig, ax = plt.subplots(figsize=(10, 6))
         plot_exit_timing_analysis(summary_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 5: Probability Heatmap
+        # Plot 7: Probability Heatmap
         if prob_matrices is not None:
             for key, matrix in prob_matrices.items():
                 fig, ax = plt.subplots(figsize=(8, 6))
@@ -1283,7 +1378,7 @@ def generate_comparison_plots(
                 pdf.savefig(fig)
                 plt.close()
         
-        # Plot 6: Drawdown Analysis
+        # Plot 8: Drawdown Analysis
         if 'max_drawdown' in summary_df.columns:
             fig, ax = plt.subplots(figsize=(10, 6))
             plot_drawdown_analysis(summary_df, ax=ax)
@@ -1291,42 +1386,42 @@ def generate_comparison_plots(
             pdf.savefig(fig)
             plt.close()
         
-        # Plot 7: Wealth Trajectory Boxplots (one per 5 years)
+        # Plot 9: Wealth Trajectory Boxplots (one per 5 years)
         fig, ax = plt.subplots(figsize=(14, 6))
         plot_wealth_trajectory_boxplots(trajectories_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 8: 2D Wealth vs Payment Scatter
+        # Plot 10: 2D Wealth vs Payment Scatter
         fig, ax = plt.subplots(figsize=(12, 8))
         plot_2d_wealth_vs_payment_scatter(summary_df, trajectories_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 9: Net Housing Cost Over Time
+        # Plot 11: Net Housing Cost Over Time
         fig, ax = plt.subplots(figsize=(10, 6))
         plot_monthly_payment_over_time(trajectories_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 10: Mortgage Payment Over Time (buying scenarios only)
+        # Plot 12: Mortgage Payment Over Time (buying scenarios only)
         fig, ax = plt.subplots(figsize=(10, 6))
         plot_mortgage_payment_over_time(trajectories_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 11: Monthly Payment Distributions
+        # Plot 13: Monthly Payment Distributions
         fig, ax = plt.subplots(figsize=(10, 6))
         plot_monthly_payment_distributions(trajectories_df, ax=ax)
         plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
         
-        # Plot 12: ROI and Cash Efficiency (Box plots)
+        # Plot 14: ROI and Cash Efficiency (Box plots)
         if 'roi' in summary_df.columns and 'cash_efficiency' in summary_df.columns:
             fig, ax = plt.subplots(figsize=(12, 6))
             plot_roi_and_cash_efficiency(summary_df, ax=ax)
@@ -1334,7 +1429,7 @@ def generate_comparison_plots(
             pdf.savefig(fig)
             plt.close()
         
-        # Plot 13: ROI vs Cash Efficiency 2D Scatter
+        # Plot 15: ROI vs Cash Efficiency 2D Scatter
         if 'roi' in summary_df.columns and 'cash_efficiency' in summary_df.columns:
             fig, ax = plt.subplots(figsize=(10, 8))
             plot_roi_vs_cash_efficiency_2d(summary_df, ax=ax)
@@ -1342,7 +1437,7 @@ def generate_comparison_plots(
             pdf.savefig(fig)
             plt.close()
         
-        # Plot 14: Wealth vs Cash Outflow
+        # Plot 16: Wealth vs Cash Outflow
         if 'total_cash_outflow' in summary_df.columns:
             fig, ax = plt.subplots(figsize=(10, 6))
             plot_wealth_vs_cash_outflow(summary_df, ax=ax)
@@ -1350,7 +1445,7 @@ def generate_comparison_plots(
             pdf.savefig(fig)
             plt.close()
         
-        # Plot 15: Mortgage Performance Over Time
+        # Plot 17: Mortgage Performance Over Time
         if 'mortgage_balance' in trajectories_df.columns:
             fig, ax = plt.subplots(figsize=(12, 6))
             plot_mortgage_performance_over_time(trajectories_df, ax=ax)
