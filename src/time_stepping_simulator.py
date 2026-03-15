@@ -4,6 +4,17 @@ Time-Stepping Mortgage Simulator with Markov Regime Transitions
 This module simulates mortgage scenarios year-by-year with dynamic regime
 transitions, allowing for realistic modeling of economic cycles and their
 impact on property values and refinancing rates.
+
+Glossary:
+    Equity: Property value minus mortgage balance. Your ownership stake in the property.
+    
+    Wealth: Equity plus cumulative cashflow. Total net worth from the property investment.
+    Represents what you'd have left after selling the property and paying off the mortgage.
+    
+    Total Cash Outflow: All money spent on property ownership over the simulation
+    period. Includes down payment, one-off costs, renovation costs, mortgage
+    payments (interest + principal), VVE fees, utilities, minus rental income.
+    Used to calculate ROI and cash efficiency metrics.
 """
 
 from dataclasses import dataclass
@@ -393,8 +404,8 @@ def simulate_scenario_with_fixed_paths(
         regime_path_str = ','.join(str(int(r)) for r in regime_paths[sample_id])
         
         # Calculate total cash outflow (absolute value of negative cumulative cashflow)
-        # This represents all money spent (down payment, mortgage payments, utilities, etc.)
-        # minus any rental income received
+        # Components: Year 0: down payment + one_off_costs + renovation_costs_once
+        #             Years 1-N: mortgage payments + VVE + utilities - rental_income
         total_cash_outflow = abs(min(0, final_state.cumulative_cashflow))
         
         # Calculate ROI: wealth gained per euro spent
