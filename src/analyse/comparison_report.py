@@ -79,6 +79,7 @@ def extract_config_differences(summary_df: pd.DataFrame) -> tuple:
                     'mortgage_term_years': buying_config.get('mortgage_term_years'),
                     'living_months': buying_config.get('living_months', 360),
                     'one_off_costs': buying_config.get('one_off_costs', 0.0),
+                    'renovation_costs_once': buying_config.get('renovation_costs_once', 0.0),
                     'monthly_vve': buying_config.get('monthly_vve', 0.0),
                     'monthly_utilities': buying_config.get('monthly_utilities', 0.0),
                     'sold_at_end': buying_config.get('sold_at_end', False),
@@ -306,6 +307,7 @@ def generate_comparison_report(
             
             lines.append(f"| Living Duration | {config.get('living_months', 360)} months ({config.get('living_months', 360)//12} years) |")
             lines.append(f"| One-off Costs | {format_currency(config.get('one_off_costs', 0))} |")
+            lines.append(f"| Renovation Costs | {format_currency(config.get('renovation_costs_once', 0))} |")
             lines.append(f"| Monthly VVE | {format_currency(config.get('monthly_vve', 0))} |")
             lines.append(f"| Monthly Utilities | {format_currency(config.get('monthly_utilities', 0))} |")
             lines.append(f"| Sold at End | {config.get('sold_at_end', False)} |")
