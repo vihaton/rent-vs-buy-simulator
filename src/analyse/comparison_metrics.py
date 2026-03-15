@@ -34,10 +34,10 @@ def calculate_comparative_probabilities(
     Example:
         >>> probs = calculate_comparative_probabilities(summary_df)
         >>> print(probs)
-                  ASN Bank  Triodos    ING
-        ASN Bank      0.50     0.53   0.48
-        Triodos       0.47     0.50   0.44
-        ING           0.52     0.56   0.50
+                  Bank1  Bank2    Bank3
+        Bank1      0.50     0.53   0.48
+        Bank2      0.47     0.50   0.44
+        Bank3      0.52     0.56   0.50
     """
     scenarios = sorted(summary_df['scenario_label'].unique())
     n_scenarios = len(scenarios)

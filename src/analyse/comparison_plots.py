@@ -14,7 +14,7 @@ Glossary:
     and liquidity needs during adverse market conditions.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -256,7 +256,8 @@ def plot_exit_timing_analysis(
 
 def plot_probability_heatmap(
     prob_matrix: pd.DataFrame,
-    ax: Optional[plt.Axes] = None
+    ax: Optional[plt.Axes] = None,
+    metric_label: Optional[str] = None
 ) -> plt.Axes:
     """
     Plot probability matrix as heatmap.
@@ -269,7 +270,7 @@ def plot_probability_heatmap(
         Matplotlib axes
     """
     if ax is None:
-        fig, ax = plt.subplots(figsize=(8, 6))
+        _, ax = plt.subplots(figsize=(8, 6))
     
     im = ax.imshow(prob_matrix.values, cmap='RdYlGn', vmin=0, vmax=1, aspect='auto')
     
@@ -282,10 +283,12 @@ def plot_probability_heatmap(
     # Add text annotations
     for i in range(len(prob_matrix.index)):
         for j in range(len(prob_matrix.columns)):
-            text = ax.text(j, i, f'{prob_matrix.iloc[i, j]:.2f}',
+            _ = ax.text(j, i, f'{prob_matrix.iloc[i, j]:.2f}',
                           ha="center", va="center", color="black", fontsize=10)
     
-    ax.set_title('P(Row Scenario > Column Scenario)')
+    title_str = 'P(Row Scenario > Column Scenario)'
+    title_str += f'\nfor {metric_label}' if metric_label else ''
+    ax.set_title(title_str)
     ax.set_xlabel('Scenario')
     ax.set_ylabel('Scenario')
     
@@ -898,7 +901,7 @@ def generate_comparison_plots(
     trajectories_df: pd.DataFrame,
     summary_df: pd.DataFrame,
     output_path: str,
-    prob_matrix: Optional[pd.DataFrame] = None
+    prob_matrices: Optional[Dict[str, pd.DataFrame]] = None
 ) -> None:
     """
     Generate comprehensive comparison plots and save to PDF.
@@ -907,7 +910,7 @@ def generate_comparison_plots(
         trajectories_df: Trajectory DataFrame
         summary_df: Summary DataFrame
         output_path: Output PDF file path
-        prob_matrix: Pre-calculated probability matrix (optional)
+        prob_matrices: Pre-calculated probability matrices (optional)
     """
     with PdfPages(output_path) as pdf:
         # Plot 1: Wealth Distribution Comparison
@@ -939,12 +942,13 @@ def generate_comparison_plots(
         plt.close()
         
         # Plot 5: Probability Heatmap
-        if prob_matrix is not None:
-            fig, ax = plt.subplots(figsize=(8, 6))
-            plot_probability_heatmap(prob_matrix, ax=ax)
-            plt.tight_layout()
-            pdf.savefig(fig)
-            plt.close()
+        if prob_matrices is not None:
+            for key, matrix in prob_matrices.items():
+                fig, ax = plt.subplots(figsize=(8, 6))
+                plot_probability_heatmap(matrix, ax=ax, metric_label=key.replace('_', ' ').title())
+                plt.tight_layout()
+                pdf.savefig(fig)
+                plt.close()
         
         # Plot 6: Drawdown Analysis
         if 'max_drawdown' in summary_df.columns:

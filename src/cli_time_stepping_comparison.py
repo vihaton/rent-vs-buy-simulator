@@ -330,13 +330,15 @@ Output files:
             print()
             print("Generating comparison plots...")
         
-        prob_matrix = calculate_comparative_probabilities(summary_df, 'final_wealth')
+        matrices = {}
+        for metric in ['final_wealth', 'total_interest_paid', 'total_cash_outflow', 'cash_efficiency']:
+            matrices[metric] = calculate_comparative_probabilities(summary_df, metric)
         
         generate_comparison_plots(
             trajectories_df,
             summary_df,
             output_dir / 'comparison_plots.pdf',
-            prob_matrix=prob_matrix
+            prob_matrices=matrices
         )
         
         if args.verbose:
