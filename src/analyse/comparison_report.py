@@ -136,7 +136,8 @@ def generate_comparison_report(
     output_path: str,
     n_samples: int,
     horizon_years: int,
-    markov_config: Optional['MarkovChainConfig'] = None
+    markov_config: Optional['MarkovChainConfig'] = None,
+    matrix_type: Optional[str] = None
 ) -> None:
     """
     Generate comprehensive markdown comparison report.
@@ -148,6 +149,7 @@ def generate_comparison_report(
         n_samples: Number of Monte Carlo samples
         horizon_years: Simulation horizon in years
         markov_config: Optional Markov chain configuration for documenting simulation parameters
+        matrix_type: Optional matrix type identifier ('expert', 'calibrated', 'empirical', or custom name)
     """
     scenarios = sorted(summary_df['scenario_label'].unique())
     
@@ -629,8 +631,21 @@ def generate_comparison_report(
     lines.append("")
     
     lines.append("3. **Sensitivity**:")
-    lines.append("   - Results based on prior transition matrix (expert judgment)")
-    lines.append("   - See calibrated_matrix_analysis.md for alternative assumptions")
+    
+    # Determine matrix type description
+    if matrix_type == 'calibrated':
+        matrix_desc = "calibrated transition matrix (BIS data + smoothing with expert judgment)"
+    elif matrix_type == 'empirical':
+        matrix_desc = "empirical transition matrix (no prior smoothing)"
+    elif matrix_type == 'expert':
+        matrix_desc = "prior transition matrix (expert judgment)"
+    elif matrix_type:
+        matrix_desc = f"{matrix_type} transition matrix"
+    else:
+        matrix_desc = "transition matrix (type not specified)"
+    
+    lines.append(f"   - Results based on {matrix_desc}")
+    lines.append("   - See alternative matrix configurations in scenarios/markov/ for sensitivity analysis")
     lines.append("")
     
     # Write report

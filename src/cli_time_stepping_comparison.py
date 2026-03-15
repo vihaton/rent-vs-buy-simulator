@@ -186,6 +186,10 @@ Output files:
     # Determine markov config path based on matrix type or custom path
     if args.markov_config:
         markov_config_path = args.markov_config
+        # Extract a short identifier from custom path for output directory
+        markov_str = Path(markov_config_path).stem
+        # For report, use the stem as matrix type
+        matrix_type_for_report = Path(markov_config_path).stem
     else:
         # Map matrix type to file
         matrix_files = {
@@ -194,7 +198,8 @@ Output files:
             'empirical': 'scenarios/markov/empirical_matrix.yaml'
         }
         markov_config_path = matrix_files[args.matrix_type]
-    markov_str = Path(markov_config_path).name.split('_')[0]
+        markov_str = args.matrix_type
+        matrix_type_for_report = args.matrix_type
     
     # Validate inputs
     if not Path(markov_config_path).exists():
@@ -327,7 +332,8 @@ Output files:
             output_dir / 'comparison_report.md',
             n_samples=args.n_samples,
             horizon_years=horizon_years,
-            markov_config=markov_config
+            markov_config=markov_config,
+            matrix_type=matrix_type_for_report
         )
         
         if args.verbose:
