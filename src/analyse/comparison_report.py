@@ -365,7 +365,7 @@ def generate_comparison_report(
         rental_data = summary_df[summary_df['scenario_label'] == rental_baseline]
         rental_wealth = rental_data['final_wealth'].mean()
         rental_traj = trajectories_df[trajectories_df['scenario_label'] == rental_baseline]
-        rental_cost = rental_traj['monthly_net_housing_cost'].iloc[0]  # All identical
+        rental_cost = rental_traj[rental_traj['year'] > 0]['monthly_net_housing_cost'].mean()  # Exclude Year 0
         
         lines.append("| Scenario | Final Wealth | Wealth vs Rental | Avg Net Housing Cost | Cost vs Rental |")
         lines.append("|----------|--------------|------------------|----------------------|----------------|")
@@ -380,7 +380,7 @@ def generate_comparison_report(
             wealth_diff = mean_wealth - rental_wealth
             
             traj_scenario = trajectories_df[trajectories_df['scenario_label'] == scenario]
-            avg_cost = traj_scenario['monthly_net_housing_cost'].mean()
+            avg_cost = traj_scenario[traj_scenario['year'] > 0]['monthly_net_housing_cost'].mean()
             cost_diff = avg_cost - rental_cost
             
             wealth_sign = "+" if wealth_diff >= 0 else ""
@@ -404,9 +404,9 @@ def generate_comparison_report(
         scenario_data = summary_df[summary_df['scenario_label'] == scenario]
         mean_wealth = scenario_data['final_wealth'].mean()
         
-        # Calculate average net housing cost from trajectories
+        # Calculate average net housing cost from trajectories (excluding Year 0)
         traj_scenario = trajectories_df[trajectories_df['scenario_label'] == scenario]
-        avg_cost = traj_scenario['monthly_net_housing_cost'].mean()
+        avg_cost = traj_scenario[traj_scenario['year'] > 0]['monthly_net_housing_cost'].mean()
         
         # Total interest only for buying scenarios
         if scenario == rental_baseline:
@@ -450,16 +450,17 @@ def generate_comparison_report(
         # For rental baseline, all samples are identical
         if scenario == rental_baseline:
             traj_scenario = trajectories_df[trajectories_df['scenario_label'] == scenario]
-            p10_cost = traj_scenario['monthly_net_housing_cost'].iloc[0]
+            p10_cost = traj_scenario[traj_scenario['year'] > 0]['monthly_net_housing_cost'].mean()
         else:
             # Find sample_ids in the P10 wealth percentile
             p10_threshold = scenario_data['final_wealth'].quantile(0.1)
             p10_samples = scenario_data[scenario_data['final_wealth'] <= p10_threshold]['sample_id']
             
-            # Calculate average net housing cost for those specific samples
+            # Calculate average net housing cost for those specific samples (excluding Year 0)
             traj_scenario = trajectories_df[
                 (trajectories_df['scenario_label'] == scenario) &
-                (trajectories_df['sample_id'].isin(p10_samples))
+                (trajectories_df['sample_id'].isin(p10_samples)) &
+                (trajectories_df['year'] > 0)
             ]
             p10_cost = traj_scenario['monthly_net_housing_cost'].mean()
         
@@ -490,16 +491,17 @@ def generate_comparison_report(
         # For rental baseline, all samples are identical
         if scenario == rental_baseline:
             traj_scenario = trajectories_df[trajectories_df['scenario_label'] == scenario]
-            p90_cost = traj_scenario['monthly_net_housing_cost'].iloc[0]
+            p90_cost = traj_scenario[traj_scenario['year'] > 0]['monthly_net_housing_cost'].mean()
         else:
             # Find sample_ids in the P90 wealth percentile
             p90_threshold = scenario_data['final_wealth'].quantile(0.9)
             p90_samples = scenario_data[scenario_data['final_wealth'] >= p90_threshold]['sample_id']
             
-            # Calculate average net housing cost for those specific samples
+            # Calculate average net housing cost for those specific samples (excluding Year 0)
             traj_scenario = trajectories_df[
                 (trajectories_df['scenario_label'] == scenario) &
-                (trajectories_df['sample_id'].isin(p90_samples))
+                (trajectories_df['sample_id'].isin(p90_samples)) &
+                (trajectories_df['year'] > 0)
             ]
             p90_cost = traj_scenario['monthly_net_housing_cost'].mean()
         

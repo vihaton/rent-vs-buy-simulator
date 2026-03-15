@@ -760,9 +760,9 @@ def plot_2d_wealth_vs_payment_scatter(
         # Get final wealth for each sample
         scenario_summary = summary_df[summary_df['scenario_label'] == scenario]
         
-        # Calculate average net housing cost per sample across all years
+        # Calculate average net housing cost per sample across all years (excluding Year 0)
         scenario_traj = trajectories_df[trajectories_df['scenario_label'] == scenario]
-        avg_costs = scenario_traj.groupby('sample_id')['monthly_net_housing_cost'].mean()
+        avg_costs = scenario_traj[scenario_traj['year'] > 0].groupby('sample_id')['monthly_net_housing_cost'].mean()
         
         # Merge to get both metrics per sample
         plot_data = scenario_summary.set_index('sample_id')[['final_wealth']].join(
@@ -833,8 +833,8 @@ def plot_2d_wealth_vs_payment_scatter(
         scenario_summary = summary_df[summary_df['scenario_label'] == rental_baseline]
         scenario_traj = trajectories_df[trajectories_df['scenario_label'] == rental_baseline]
         
-        # All samples are identical for rental
-        rental_cost = scenario_traj['monthly_net_housing_cost'].iloc[0]
+        # All samples are identical for rental, calculate average excluding Year 0
+        rental_cost = scenario_traj[scenario_traj['year'] > 0]['monthly_net_housing_cost'].mean()
         rental_wealth = scenario_summary['final_wealth'].mean()
         
         ax.scatter(
