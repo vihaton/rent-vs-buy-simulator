@@ -106,8 +106,8 @@ Output files:
     
     parser.add_argument(
         '--regime-distributions',
-        default='scenarios/markov/regime_distributions.yaml',
-        help='Path to regime distributions configuration (default: scenarios/markov/regime_distributions.yaml)'
+        default='scenarios/markov/configs/regime_distributions.yaml',
+        help='Path to regime distributions configuration (default: scenarios/markov/configs/regime_distributions.yaml)'
     )
     
     parser.add_argument(
@@ -161,6 +161,12 @@ Output files:
         help='Print progress information'
     )
     
+    parser.add_argument(
+        '--start-regime',
+        choices=['NORMAL_GROWTH', 'STAGNATION', 'CRISIS', 'RECOVERY'],
+        help='Override start regime for all scenarios (optional). Takes precedence over scenario YAML markov.start_regime field.'
+    )
+    
     args = parser.parse_args()
     
     # Expand wildcards in scenario paths
@@ -193,9 +199,9 @@ Output files:
     else:
         # Map matrix type to file
         matrix_files = {
-            'expert': 'scenarios/markov/default_regimes.yaml',
-            'calibrated': 'scenarios/markov/calibrated_regimes.yaml',
-            'empirical': 'scenarios/markov/empirical_matrix.yaml'
+            'expert': 'scenarios/markov/configs/transition_matrices/expert_matrix.yaml',
+            'calibrated': 'scenarios/markov/configs/transition_matrices/calibrated_matrix.yaml',
+            'empirical': 'scenarios/markov/configs/transition_matrices/empirical_matrix.yaml'
         }
         markov_config_path = matrix_files[args.matrix_type]
         markov_str = args.matrix_type
@@ -266,6 +272,7 @@ Output files:
             n_samples=args.n_samples,
             seed=args.seed,
             rental_baseline_path=args.rental_baseline,
+            cli_start_regime=args.start_regime,
             verbose=args.verbose
         )
     except Exception as e:

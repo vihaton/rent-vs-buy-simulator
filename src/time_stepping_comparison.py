@@ -23,7 +23,7 @@ from src.tax import NLHomeTax2026
 from src.mortgage import MortgageLoan, AmortizationType, RateReset
 
 
-def load_scenario(scenario_path: str) -> Tuple[BuyingScenario, str]:
+def load_scenario(scenario_path: str) -> Tuple[BuyingScenario, str, Optional[str]]:
     """
     Load a mortgage scenario from YAML file.
     
@@ -31,21 +31,26 @@ def load_scenario(scenario_path: str) -> Tuple[BuyingScenario, str]:
         scenario_path: Path to scenario YAML file
     
     Returns:
-        Tuple of (BuyingScenario, label)
+        Tuple of (BuyingScenario, label, start_regime)
+        where start_regime is None if not specified in YAML
     """
     with open(scenario_path, 'r') as f:
-        config = yaml.safe_load(f)
+        full_config = yaml.safe_load(f)
+    
+    # Extract markov overrides if present
+    markov_overrides = full_config.get('markov', {})
+    start_regime = markov_overrides.get('start_regime')
     
     # Handle nested structure (buying section)
-    if 'buying' in config:
-        buying_config = config['buying']
-        tax_config = config.get('tax', {})
-        label = config.get('name', Path(scenario_path).stem)
+    if 'buying' in full_config:
+        buying_config = full_config['buying']
+        tax_config = full_config.get('tax', {})
+        label = full_config.get('name', Path(scenario_path).stem)
     else:
         # Flat structure
-        buying_config = config
-        tax_config = config.get('tax', {})
-        label = config.get('description', Path(scenario_path).stem)
+        buying_config = full_config
+        tax_config = full_config.get('tax', {})
+        label = full_config.get('description', Path(scenario_path).stem)
     
     # Use buying_config instead of config for the rest
     config = buying_config
@@ -142,7 +147,7 @@ def load_scenario(scenario_path: str) -> Tuple[BuyingScenario, str]:
         link=config.get('link')
     )
     
-    return scenario, label
+    return scenario, label, start_regime
 
 
 def load_rental_scenario(rental_path: str) -> Tuple[RentingScenario, str]:
@@ -178,6 +183,7 @@ def run_multi_scenario_comparison(
     n_samples: int,
     seed: int,
     rental_baseline_path: Optional[str] = None,
+    cli_start_regime: Optional[str] = None,
     verbose: bool = False
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -193,6 +199,7 @@ def run_multi_scenario_comparison(
         n_samples: Number of Monte Carlo samples
         seed: Random seed
         rental_baseline_path: Optional path to rental baseline scenario YAML
+        cli_start_regime: Optional CLI override for start regime (applies to all scenarios)
         verbose: Print progress
     
     Returns:
@@ -200,13 +207,49 @@ def run_multi_scenario_comparison(
             - trajectories_df: Long format (sample × year × scenario)
             - summary_df: Wide format (sample × scenario)
     """
+    # Determine start regime with priority: CLI > scenario YAML > default
+    # First, check if any scenario specifies a start regime
+    scenario_start_regimes = {}
+    for scenario_path in scenario_configs:
+        _, _, start_regime = load_scenario(scenario_path)
+        if start_regime:
+            scenario_start_regimes[scenario_path] = start_regime
+    
+    # Determine effective start regime
+    effective_start_regime = None
+    if cli_start_regime:
+        # CLI override takes precedence
+        effective_start_regime = cli_start_regime
+        if verbose:
+            print(f"Using CLI start regime override: {cli_start_regime}")
+    elif scenario_start_regimes:
+        # Check if all scenarios agree on start regime
+        unique_regimes = set(scenario_start_regimes.values())
+        if len(unique_regimes) == 1:
+            effective_start_regime = list(unique_regimes)[0]
+            if verbose:
+                print(f"All scenarios specify start regime: {effective_start_regime}")
+        else:
+            if verbose:
+                print("Warning: Scenarios specify different start regimes:")
+                for path, regime in scenario_start_regimes.items():
+                    print(f"  {Path(path).name}: {regime}")
+                print("Using first scenario's start regime for shared paths")
+            effective_start_regime = list(scenario_start_regimes.values())[0]
+    
+    # Apply start regime override if specified
+    if effective_start_regime:
+        markov_config = markov_config.with_start_regime(effective_start_regime)
+        if verbose:
+            print(f"Starting all simulations in {effective_start_regime} regime")
+    
     if verbose:
         print(f"Generating {n_samples} shared regime paths...")
     
     # Determine maximum horizon from all buying scenarios
     max_living_months = 0
     for scenario_path in scenario_configs:
-        scenario, _ = load_scenario(scenario_path)
+        scenario, _, _ = load_scenario(scenario_path)
         max_living_months = max(max_living_months, scenario.living_months)
     
     horizon_years = max_living_months // 12
@@ -237,7 +280,7 @@ def run_multi_scenario_comparison(
         if verbose:
             print(f"Simulating scenario {i+1}/{len(scenario_configs)}: {Path(scenario_path).name}")
         
-        scenario, label = load_scenario(scenario_path)
+        scenario, label, _ = load_scenario(scenario_path)
         
         # Simulate with pre-determined regime paths and parameters
         traj_df, summ_df = simulate_scenario_with_fixed_paths(

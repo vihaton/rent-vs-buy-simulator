@@ -12,6 +12,7 @@ import yaml
 from pathlib import Path
 from collections import defaultdict
 import argparse
+import shutil
 
 
 def load_config(config_path: str) -> dict:
@@ -374,6 +375,104 @@ def save_calibrated_matrix(
     print(f"✓ Empirical matrix saved to: {empirical_path}")
 
 
+def save_expert_matrix(prior_matrix: pd.DataFrame, output_path: Path, config: dict):
+    """
+    Save expert prior matrix in the same format as other matrices.
+    
+    Args:
+        prior_matrix: Expert prior transition matrix
+        output_path: Path to save expert matrix YAML
+        config: Configuration dict for metadata
+    """
+    regime_names = prior_matrix.index.tolist()
+    stats = calculate_regime_statistics(prior_matrix)
+    
+    with open(output_path, 'w') as f:
+        f.write("# Expert Prior Transition Matrix\n")
+        f.write("#\n")
+        f.write("# Source: Expert judgment (see plans/reasoning_for_priors.md)\n")
+        f.write("# This matrix represents realistic regime persistence based on\n")
+        f.write("# economic theory and historical patterns.\n")
+        f.write("#\n")
+        f.write("# Recommended for most simulations as it provides stable,\n")
+        f.write("# theoretically-grounded transition probabilities.\n")
+        f.write("\n")
+        
+        f.write("regimes:\n")
+        for regime in regime_names:
+            f.write(f"  - {regime}\n")
+        f.write("\n")
+        
+        f.write("transition_matrix:\n")
+        for i, row in enumerate(prior_matrix.values):
+            regime_name = regime_names[i]
+            f.write(f"  - [{', '.join(f'{x:.4f}' for x in row)}]  # From {regime_name}\n")
+        
+        f.write("\n")
+        f.write("# Initial state probabilities (stationary distribution)\n")
+        stationary = stats['long_run_frequency'].values
+        f.write(f"initial_state_probs: [{', '.join(f'{x:.4f}' for x in stationary)}]\n")
+        f.write("\n")
+        
+        f.write("# Time step (each transition represents this many years)\n")
+        f.write("time_step_years: 1.0\n")
+        f.write("\n")
+        
+        f.write("# Expected regime durations (years)\n")
+        f.write("expected_durations:\n")
+        for regime, duration in stats['expected_duration_years'].items():
+            f.write(f"  {regime}: {duration:.2f}\n")
+
+
+def copy_outputs_to_configs(
+    prior_matrix: pd.DataFrame,
+    config: dict,
+    output_dir: Path
+):
+    """
+    Copy calibration outputs to configs directory for use in simulations.
+    
+    Copies three matrices:
+    1. expert_matrix.yaml - The expert prior (unchanged)
+    2. calibrated_matrix.yaml - Bayesian smoothed result
+    3. empirical_matrix.yaml - Pure empirical result
+    
+    Args:
+        prior_matrix: Expert prior matrix (to be saved as expert_matrix.yaml)
+        config: Configuration dict
+        output_dir: Directory containing calibration outputs
+    """
+    if not config['output'].get('copy_to_configs', False):
+        print("\nSkipping copy to configs (copy_to_configs=False)")
+        return
+    
+    config_dir = Path(config['output']['config_dir'])
+    config_dir.mkdir(parents=True, exist_ok=True)
+    
+    print("\n" + "=" * 70)
+    print("Copying matrices to configs directory")
+    print("=" * 70)
+    
+    # 1. Copy calibrated matrix
+    src_calibrated = output_dir / config['output']['calibrated_file']
+    dst_calibrated = config_dir / 'calibrated_matrix.yaml'
+    shutil.copy2(src_calibrated, dst_calibrated)
+    print(f"✓ Copied calibrated matrix: {dst_calibrated}")
+    
+    # 2. Copy empirical matrix
+    src_empirical = output_dir / config['output']['empirical_file']
+    dst_empirical = config_dir / 'empirical_matrix.yaml'
+    shutil.copy2(src_empirical, dst_empirical)
+    print(f"✓ Copied empirical matrix: {dst_empirical}")
+    
+    # 3. Save expert prior as expert_matrix.yaml
+    dst_expert = config_dir / 'expert_matrix.yaml'
+    save_expert_matrix(prior_matrix, dst_expert, config)
+    print(f"✓ Saved expert matrix: {dst_expert}")
+    
+    print("\nAll matrices ready for use in simulations!")
+
+
 def main():
     """Main calibration workflow."""
     parser = argparse.ArgumentParser(
@@ -382,7 +481,7 @@ def main():
     parser.add_argument(
         '--config',
         type=str,
-        default='scenarios/markov/calibration_config.yaml',
+        default='scenarios/markov/calibration/calibration_config.yaml',
         help='Path to calibration configuration file'
     )
     args = parser.parse_args()
@@ -446,6 +545,13 @@ def main():
         country_stats,
         config,
         output_dir
+    )
+    
+    # Copy outputs to configs directory
+    copy_outputs_to_configs(
+        prior_matrix=prior_matrix,
+        config=config,
+        output_dir=output_dir
     )
     
     print("\n" + "=" * 70)

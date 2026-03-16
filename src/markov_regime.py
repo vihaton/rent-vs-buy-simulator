@@ -133,6 +133,51 @@ class MarkovChainConfig:
             regime_distributions=regime_distributions
         )
     
+    def with_start_regime(self, regime_name: str) -> 'MarkovChainConfig':
+        """
+        Create a new config with deterministic starting regime.
+        
+        This method returns a new MarkovChainConfig instance with initial_state_probs
+        set to deterministically start in the specified regime (probability = 1.0 for
+        that regime, 0.0 for all others).
+        
+        Args:
+            regime_name: Name of starting regime (e.g., "CRISIS", "NORMAL_GROWTH")
+        
+        Returns:
+            New MarkovChainConfig with deterministic initial state
+        
+        Raises:
+            ValueError: If regime_name is not in the list of valid regimes
+        
+        Example:
+            >>> config = MarkovChainConfig.from_yaml(...)
+            >>> crisis_config = config.with_start_regime("CRISIS")
+            >>> # All simulations will now start in CRISIS regime
+        """
+        if regime_name not in self.regimes:
+            raise ValueError(
+                f"Unknown regime: '{regime_name}'. "
+                f"Must be one of: {', '.join(self.regimes)}"
+            )
+        
+        # Find index of specified regime
+        regime_idx = self.regimes.index(regime_name)
+        
+        # Create deterministic initial state probabilities
+        new_initial_probs = np.zeros(4)
+        new_initial_probs[regime_idx] = 1.0
+        
+        # Create new instance with updated initial probs
+        # (all other fields remain the same)
+        return MarkovChainConfig(
+            regimes=self.regimes,
+            transition_matrix=self.transition_matrix.copy(),
+            initial_state_probs=new_initial_probs,
+            time_step_years=self.time_step_years,
+            regime_distributions=self.regime_distributions
+        )
+    
     def get_expected_duration(self, regime: RegimeState) -> float:
         """
         Calculate expected duration in a regime.

@@ -73,11 +73,13 @@ data:
 # Prior matrix
 prior:
   # Path to prior transition matrix CSV (relative to project root)
-  prior_matrix_path: "scenarios/markov/prior_matrix.csv"
+  # prior_matrix_path: "scenarios/markov/calibration/priors/prior_v1_baseline.csv"
+  # prior_matrix_path: "scenarios/markov/calibration/priors/prior_v2_persistent.csv"
+  prior_matrix_path: "scenarios/markov/calibration/priors/prior_v3_very_persistent.csv"
   
   # Weight on prior in Bayesian smoothing (0 = all data, 1 = all prior)
   # Higher values rely more on expert judgment, lower values on empirical data
-  alpha: 0.3
+  alpha: 0.95
 
 # Regime classification thresholds
 regimes:
@@ -97,11 +99,19 @@ regimes:
 # Output configuration
 output:
   # Directory for output files (relative to project root)
-  output_dir: "scenarios/markov"
+  output_dir: "scenarios/markov/calibration/outputs"
   
-  # Output file names
+  # Output file names (in outputs directory)
   calibrated_file: "calibrated_regimes.yaml"
   empirical_file: "empirical_matrix.yaml"
+  
+  # Copy to configs directory for use in simulations
+  copy_to_configs: true
+  config_dir: "scenarios/markov/configs/transition_matrices"
+  # Note: Files will be copied with standardized names:
+  #   - expert_matrix.yaml (from prior)
+  #   - calibrated_matrix.yaml (from calibrated_file)
+  #   - empirical_matrix.yaml (from empirical_file)
   
   # Time step for transitions (in years)
   # BIS data is quarterly, so each transition represents 0.25 years
