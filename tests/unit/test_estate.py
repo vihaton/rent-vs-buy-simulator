@@ -350,6 +350,77 @@ class TestBuyingScenario(unittest.TestCase):
         self.assertEqual(result["one_off_costs"], 18000.0)
         self.assertEqual(result["renovation_costs_once"], 5000.0)
 
+    def test_evaluate_buying_cash_required_correct_order(self):
+        """Test cash requirement with correct purchase_price > mortgage_principal.
+        
+        This test verifies the correct calculation when values are in the right order.
+        User's scenario should be:
+        - Purchase price: 365k (what the flat costs)
+        - Mortgage: 360k (what bank lends)
+        - Down payment: 5k
+        - One-off costs: 10k
+        - Renovation: 5k
+        - Total: 20k
+        """
+        scenario = BuyingScenario(
+            purchase_price=365000.0,  # Correct: purchase price
+            mortgage_principal=360000.0,  # Correct: mortgage amount
+            mortgage_annual_rate=0.04,
+            mortgage_term_years=30,
+            living_months=36,
+            one_off_costs=10000.0,
+            renovation_costs_once=5000.0,
+            monthly_vve=385.0,
+            monthly_utilities=300.0,
+            monthly_rent_income=0.0,
+            months_rented=0,
+            annual_value_growth=0.02,
+            sold_at_end=True,
+            selling_cost_rate=0.03,
+        )
+        result = evaluate_buying(scenario)
+        
+        # Down payment: 365000 - 360000 = 5000
+        self.assertEqual(result["down_payment"], 5000.0)
+        
+        # Cash required: 5000 + 10000 + 5000 = 20000
+        self.assertEqual(result["cash_required_upfront"], 20000.0)
+        self.assertEqual(result["one_off_costs"], 10000.0)
+        self.assertEqual(result["renovation_costs_once"], 5000.0)
+
+    def test_evaluate_buying_cash_required_swapped_values(self):
+        """Test cash requirement when purchase_price and mortgage_principal are swapped.
+        
+        This documents what happens when the YAML configuration has the values backwards
+        (which is the bug in the user's scenario file).
+        """
+        scenario = BuyingScenario(
+            purchase_price=360000.0,  # WRONG: Should be 365000
+            mortgage_principal=365000.0,  # WRONG: Should be 360000
+            mortgage_annual_rate=0.04,
+            mortgage_term_years=30,
+            living_months=36,
+            one_off_costs=10000.0,
+            renovation_costs_once=5000.0,
+            monthly_vve=385.0,
+            monthly_utilities=300.0,
+            monthly_rent_income=0.0,
+            months_rented=0,
+            annual_value_growth=0.02,
+            sold_at_end=True,
+            selling_cost_rate=0.03,
+        )
+        result = evaluate_buying(scenario)
+        
+        # When values are swapped: down_payment = 360000 - 365000 = -5000
+        self.assertEqual(result["down_payment"], -5000.0)
+        
+        # Cash required becomes: -5000 + 10000 + 5000 = 10000 (WRONG!)
+        # This is the bug the user is seeing
+        self.assertEqual(result["cash_required_upfront"], 10000.0)
+        
+        # The correct value should be 20000 (with proper purchase/mortgage values)
+
     def test_evaluate_buying_usual_monthly_cost(self):
         """Test usual monthly cost calculation (excluding one-off costs)"""
         scenario = BuyingScenario(
@@ -370,24 +441,26 @@ class TestBuyingScenario(unittest.TestCase):
         )
         result = evaluate_buying(scenario)
         
-        # Usual monthly cost should NOT include one-off or renovation costs
+        # Usual monthly cost should NOT include one-off, renovation, or down payment costs
         # It should only include: mortgage payment + VVE + utilities
-        # avg_net_cost_per_month INCLUDES one-off costs amortized
-        # usual_net_cost_per_month EXCLUDES one-off costs
+        # avg_net_cost_per_month INCLUDES down payment + one-off costs amortized
+        # usual_net_cost_per_month EXCLUDES down payment + one-off costs
         
         self.assertIn("usual_net_cost_per_month", result)
         self.assertIn("avg_net_cost_per_month", result)
         
         # usual_net_cost_per_month should be less than avg_net_cost_per_month
-        # because it excludes the 20,000 in one-off costs
+        # because it excludes upfront costs
         self.assertLess(
             result["usual_net_cost_per_month"],
             result["avg_net_cost_per_month"]
         )
         
-        # The difference should be approximately (one_off + renovation) / months
-        # = (12000 + 8000) / 24 = 833.33
-        expected_difference = (12000.0 + 8000.0) / 24
+        # The difference should be approximately (down_payment + one_off + renovation) / months
+        # Down payment = 200000 - 180000 = 20000
+        # = (20000 + 12000 + 8000) / 24 = 1666.67
+        down_payment = 200000.0 - 180000.0
+        expected_difference = (down_payment + 12000.0 + 8000.0) / 24
         actual_difference = result["avg_net_cost_per_month"] - result["usual_net_cost_per_month"]
         self.assertAlmostEqual(actual_difference, expected_difference, places=0)
 
@@ -415,8 +488,11 @@ class TestBuyingScenario(unittest.TestCase):
         # Both metrics should account for rental income
         self.assertIn("usual_net_cost_per_month", result)
         
-        # The difference between avg and usual should still be the one-off costs
-        expected_difference = (10000.0 + 5000.0) / 12
+        # The difference between avg and usual should include down payment + one-off costs
+        # Down payment = 200000 - 180000 = 20000
+        # = (20000 + 10000 + 5000) / 12 = 2916.67
+        down_payment = 200000.0 - 180000.0
+        expected_difference = (down_payment + 10000.0 + 5000.0) / 12
         actual_difference = result["avg_net_cost_per_month"] - result["usual_net_cost_per_month"]
         self.assertAlmostEqual(actual_difference, expected_difference, places=0)
 

@@ -1,0 +1,33 @@
+# Expert Prior Transition Matrix
+#
+# Source: Expert judgment (see plans/reasoning_for_priors.md)
+# This matrix represents realistic regime persistence based on
+# economic theory and historical patterns.
+#
+# Recommended for most simulations as it provides stable,
+# theoretically-grounded transition probabilities.
+
+regimes:
+  - NORMAL_GROWTH
+  - STAGNATION
+  - CRISIS
+  - RECOVERY
+
+transition_matrix:
+  - [0.8800, 0.0800, 0.0200, 0.0200]  # From NORMAL_GROWTH
+  - [0.2000, 0.6700, 0.1000, 0.0300]  # From STAGNATION
+  - [0.0500, 0.2500, 0.6700, 0.0300]  # From CRISIS
+  - [0.2000, 0.1000, 0.0300, 0.6700]  # From RECOVERY
+
+# Initial state probabilities (stationary distribution)
+initial_state_probs: [0.5709, 0.2462, 0.1154, 0.0675]
+
+# Time step (each transition represents this many years)
+time_step_years: 1.0
+
+# Expected regime durations (years)
+expected_durations:
+  NORMAL_GROWTH: 8.33
+  STAGNATION: 3.03
+  CRISIS: 3.03
+  RECOVERY: 3.03

@@ -1,0 +1,44 @@
+# Calibrated Transition Matrix from BIS Property Price Data
+#
+# Data source: Bank for International Settlements (BIS)
+# Real Residential Property Prices Index
+# Period: 2023-Q2 to 2025-Q3 (quarterly data)
+#
+# Countries included: Netherlands, Germany, Belgium, France, Austria, Denmark, Sweden, Finland, Norway, Switzerland, Ireland, Spain, Portugal, Italy, Greece, United Kingdom, United States, Canada, Australia, New Zealand
+# Total transitions observed: 160
+#
+# Calibration method:
+#   - Empirical estimation from historical data (5% weight)
+#   - Prior beliefs from expert judgment (95% weight)
+#   - Bayesian smoothing to handle limited data
+#
+# Regime classification rules:
+#   - RECOVERY: > 5% annual property price growth
+#   - NORMAL_GROWTH: 2% to 5% annual growth
+#   - STAGNATION: -2% to 2% annual growth
+#   - CRISIS: < -2% annual growth
+
+regimes:
+  - NORMAL_GROWTH
+  - STAGNATION
+  - CRISIS
+  - RECOVERY
+
+transition_matrix:
+  - [0.6277, 0.2049, 0.0985, 0.0689]  # From NORMAL_GROWTH
+  - [0.4248, 0.3281, 0.1664, 0.0807]  # From STAGNATION
+  - [0.2923, 0.3444, 0.2813, 0.0820]  # From CRISIS
+  - [0.4464, 0.2201, 0.1046, 0.2288]  # From RECOVERY
+
+# Initial state probabilities (stationary distribution)
+initial_state_probs: [0.5116, 0.2579, 0.1426, 0.0879]
+
+# Time step (each transition represents this many years)
+time_step_years: 1.0
+
+# Expected regime durations (years)
+expected_durations:
+  NORMAL_GROWTH: 2.69
+  STAGNATION: 1.49
+  CRISIS: 1.39
+  RECOVERY: 1.30

@@ -215,9 +215,26 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-scenarios/*.yaml
+scenarios/**/*.yaml
 data/**/*.csv
 data/**/*.html
 
 outputs/
 .DS_Store
+
+plans
+
+# Markov calibration outputs (regenerated from inputs)
+scenarios/markov/calibration/outputs/
+
+# Keep markov config files (new structure)
+!scenarios/markov/configs/**/*.yaml
+!scenarios/markov/calibration/calibration_config.yaml
+!scenarios/markov/calibration/priors/*.csv
+
+# Keep old files for backward compatibility (will be removed later)
+!scenarios/markov/calibrated_regimes.yaml
+!scenarios/markov/calibration_config.yaml
+!scenarios/markov/empirical_matrix.yaml
+!scenarios/markov/regime_distributions.yaml
+!scenarios/markov/default_regimes.yaml

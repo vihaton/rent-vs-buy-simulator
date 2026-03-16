@@ -1,0 +1,6 @@
+name: "Rental Baseline"
+rent_monthly: 1950
+utilities_monthly: 250
+living_months: 360  # 30 years
+annual_rent_increase: 0.011  # 1.1% per year
+description: "74m2 / 2 bedrooms"

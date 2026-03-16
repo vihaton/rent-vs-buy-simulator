@@ -1,0 +1,33 @@
+# Simple Shared Variables Configuration
+# 
+# This configuration defines uncertain variables that are shared across
+# all mortgage scenarios in a probabilistic comparison.
+#
+# Usage:
+#   python -m src.cli_probabilistic \
+#     --scenarios scenarios/case_*.yaml \
+#     --variables scenarios/probabilistic/shared_variables_simple.yaml \
+#     --verbose
+
+variables:
+  # Property value growth rate (annual)
+  # Using normal distribution with mean 2% and std 1.5%
+  annual_value_growth:
+    strategy: "normal"
+    mean: 0.02      # 2% expected annual growth
+    std: 0.015      # 1.5% standard deviation
+    samples: 1000   # Number of Monte Carlo samples
+    seed: 42        # Random seed for reproducibility
+    min: -0.05      # Truncate at -5% (prevent extreme crashes)
+    max: 0.10       # Truncate at +10% (prevent extreme booms)
+  
+  # Interest rate at 10-year reset
+  # Using normal distribution with mean 4% and std 1%
+  "mortgage_loans[*].rate_resets[0].new_rate_default":
+    strategy: "normal"
+    mean: 0.04      # 4% expected rate
+    std: 0.01       # 1% standard deviation
+    samples: 1000   # Must match other variables
+    seed: 42        # Same seed ensures correlated sampling
+    min: 0.01       # Minimum 1% rate
+    max: 0.08       # Maximum 8% rate

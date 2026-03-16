@@ -1,0 +1,104 @@
+name: "Multi-Loan Sensitivity Analysis - 70/30 Annuity/Linear Split with Rate Resets"
+
+# Tax configuration (required for buying scenarios)
+tax:
+  woz_value: 372000
+  marginal_tax_rate: 0.495
+  deduction_cap_rate: 0.3756
+  apply_wet_hillen: true
+  rental_income_tax_rate: 0.0
+
+# Base buying scenario with multi-loan mortgage configuration
+buying:
+  purchase_price: 333000
+  
+  # Multi-loan mortgage configuration
+  mortgage_loans:
+    - percentage: 0.70  # 70% of total mortgage as annuity
+      annual_rate: 0.038  # Initial rate (i1)
+      term_years: 30
+      amortization_type: "annuity"
+      fixed_period_years: 10
+      rate_resets:
+        - month: 120  # After 10 years
+          new_rate_min: 0.03  # i5
+          new_rate_max: 0.05  # i6
+          new_rate_default: 0.04
+      label: "Loan A - 70% Annuity 10y"
+    
+    - percentage: 0.30  # 30% of total mortgage as linear
+      annual_rate: 0.038  # Initial rate (i2)
+      term_years: 30
+      amortization_type: "linear"
+      fixed_period_years: 5
+      rate_resets:
+        - month: 60   # After 5 years
+          new_rate_min: 0.032  # i3
+          new_rate_max: 0.048  # i4
+          new_rate_default: 0.04
+        - month: 120  # After 10 years (5y after first reset)
+          new_rate_min: 0.03   # i5
+          new_rate_max: 0.05   # i6
+          new_rate_default: 0.04
+      label: "Loan B - 30% Linear 5y"
+  
+  # Total mortgage principal (used to calculate loan amounts from percentages)
+  mortgage_principal: 325000
+  
+  living_months: 120  # 10 years
+  
+  one_off_costs: 10000
+  renovation_costs_once: 5000
+  monthly_vve: 385
+  monthly_utilities: 300
+  
+  monthly_rent_income: 0
+  months_rented: 0
+  
+  annual_value_growth: 0.02
+  sold_at_end: true
+  selling_cost_rate: 0.01
+
+# Sensitivity analysis configuration
+sensitivity:
+  # Define which parameters to vary
+  variables:
+    # Vary the 5-year reset rate (Loan B, first reset)
+    "mortgage_loans[1].rate_resets[0].new_rate_default":
+      strategy: "linspace"
+      min: 0.032  # i3
+      max: 0.048  # i4
+      steps: 5
+    
+    # Vary the 10-year reset rate for Loan A
+    "mortgage_loans[0].rate_resets[0].new_rate_default":
+      strategy: "linspace"
+      min: 0.03  # i5
+      max: 0.05  # i6
+      steps: 5
+    
+    # Vary the 10-year reset rate for Loan B (second reset)
+    "mortgage_loans[1].rate_resets[1].new_rate_default":
+      strategy: "linspace"
+      min: 0.03  # i5
+      max: 0.05  # i6
+      steps: 5
+    
+    # Optionally vary property value growth
+    annual_value_growth:
+      strategy: "linspace"
+      min: 0.0
+      max: 0.04
+      steps: 3
+  
+  # Optional: constraints to filter results
+  constraints:
+    - "cash_required_upfront <= 30000"
+    - "wealth_end >= -50000"
+  
+  # Output configuration
+  output:
+    format: "csv"  # or "parquet", "json"
+    directory: "outputs/sensitivity"
+    filename_prefix: "example"
+    include_timestamp: false

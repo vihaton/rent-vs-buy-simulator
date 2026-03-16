@@ -1,0 +1,73 @@
+# Shared Variables with Mixture Distributions
+# 
+# This configuration uses 3-regime mixture distributions to model
+# realistic uncertainty with regime shifts (normal/stagnation/crisis).
+#
+# Based on reasoning in plans/reasoning_for_priors.md
+#
+# Usage:
+#   python -m src.cli_probabilistic \
+#     --scenarios scenarios/case_*.yaml \
+#     --variables scenarios/probabilistic/shared_mixture_variables.yaml \
+#     --verbose
+
+variables:
+  # Property value growth rate (annual)
+  # 3-regime mixture: normal growth / stagnation / crisis
+  annual_value_growth:
+    strategy: "mixture"
+    samples: 5000
+    seed: 42
+    
+    components:
+      # Regime 1: Normal growth (50% probability)
+      - weight: 0.50
+        mean: 0.035    # 3.5% annual nominal growth
+        std: 0.07      # 7% annual volatility
+        label: "Normal growth"
+      
+      # Regime 2: Stagnation (30% probability)
+      - weight: 0.30
+        mean: 0.000    # 0% annual growth
+        std: 0.06      # 6% annual volatility
+        label: "Stagnation"
+      
+      # Regime 3: Crisis (20% probability)
+      - weight: 0.20
+        mean: -0.050   # -5% annual decline
+        std: 0.11      # 11% annual volatility
+        label: "Crisis"
+    
+    # Truncate to reasonable bounds
+    min: -0.15  # Maximum -15% annual decline
+    max: 0.15   # Maximum +15% annual growth
+  
+  # Interest rate at 10-year reset
+  # 3-regime mixture: low-rate / normal / high-rate environment
+  "mortgage_loans[*].rate_resets[0].new_rate_default":
+    strategy: "mixture"
+    samples: 5000
+    seed: 42
+    
+    components:
+      # Regime 1: Low-rate environment (40% probability)
+      - weight: 0.40
+        mean: 0.030    # 3.0% rate
+        std: 0.009     # 0.9% volatility
+        label: "Low-rate environment"
+      
+      # Regime 2: Normal environment (35% probability)
+      - weight: 0.35
+        mean: 0.041    # 4.1% rate
+        std: 0.010     # 1.0% volatility
+        label: "Normal environment"
+      
+      # Regime 3: High-rate environment (25% probability)
+      - weight: 0.25
+        mean: 0.060    # 6.0% rate
+        std: 0.014     # 1.4% volatility
+        label: "High-rate environment"
+    
+    # Truncate to realistic range
+    min: 0.005  # 0.5% floor (negative rates unlikely)
+    max: 0.09   # 9% ceiling (extreme but plausible)
